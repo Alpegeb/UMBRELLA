@@ -11,9 +11,9 @@
 
 
 | Name         | Student ID | Role |
-|--------------|-------------|------|
-| Alp Ege Bulutoğlu | [32397] | Project Coordinator |
-| Aysın Nur İpek | [32393] | Testing & QA Lead |
-| Yavuz Başkurt | [34543] | Documentation & Submission Lead |
-| Berkay Türeyen | [30763] | Integration & Repository Lead |
-| Nisa Kan     | [31999] | Presentation & Communication Lead |
+|--------------|-------|------|
+| Alp Ege Bulutoğlu | 32397 | Project Coordinator |
+| Aysın Nur İpek | 32393 | Testing & QA Lead |
+| Yavuz Başkurt | 34543 | Documentation & Submission Lead |
+| Berkay Türeyen | 30763 | Integration & Repository Lead |
+| Nisa Kan     | 31999 | Presentation & Communication Lead |
