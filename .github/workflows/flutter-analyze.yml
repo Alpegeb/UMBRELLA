@@ -1,0 +1,26 @@
+name: Flutter Analyze
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'   # always latest stable Flutter
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Run analyzer
+        run: flutter analyze
