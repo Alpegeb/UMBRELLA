@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../core/app_theme.dart';
+import '../../../core/app_theme.dart';
 
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
+  const NotificationScreen({
+    super.key,
+    required this.appTheme,
+  });
+
+  final AppTheme appTheme;
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -16,12 +21,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   bool airQuality = true;
   bool visibility = true;
 
-  bool isLight = true;
+  AppTheme get theme => widget.appTheme;
 
   @override
   Widget build(BuildContext context) {
-    final theme = isLight ? AppTheme.light : AppTheme.dark;
-
     return Scaffold(
       backgroundColor: theme.bg,
       appBar: AppBar(
@@ -32,15 +35,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
           color: theme.text,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              isLight ? Icons.dark_mode : Icons.light_mode,
-              color: theme.sub,
-            ),
-            onPressed: () => setState(() => isLight = !isLight),
-          )
-        ],
         title: Text(
           'Real-time notifications',
           style: TextStyle(
@@ -208,14 +202,13 @@ class _IndicatorRow extends StatelessWidget {
             Switch(
               value: value,
               onChanged: onChanged,
-              thumbColor: WidgetStateProperty.all(Colors.grey),
+              thumbColor: WidgetStatePropertyAll(theme.cardAlt),
               trackColor: WidgetStateProperty.resolveWith(
-                    (states) =>
-                states.contains(WidgetState.selected)
-                    ? Colors.grey.shade600
-                    : Colors.grey.shade300,
+                    (states) => states.contains(WidgetState.selected)
+                    ? theme.accent.withValues(alpha: 0.5)
+                    : theme.border,
               ),
-            )
+            ),
           ],
         ),
       ],

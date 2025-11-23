@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../core/app_theme.dart';
+import '../../../core/app_theme.dart';
 
 class FeedbackScreen extends StatefulWidget {
-  const FeedbackScreen({super.key});
+  const FeedbackScreen({
+    super.key,
+    required this.appTheme,
+  });
+
+  final AppTheme appTheme;
 
   @override
   State<FeedbackScreen> createState() => _FeedbackScreenState();
@@ -22,12 +27,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     'Other',
   ];
 
-  bool isLight = true;
+  AppTheme get theme => widget.appTheme;
 
   @override
   Widget build(BuildContext context) {
-    final theme = isLight ? AppTheme.light : AppTheme.dark;
-
     return Scaffold(
       backgroundColor: theme.bg,
       appBar: AppBar(
@@ -38,15 +41,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
           color: theme.text,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              isLight ? Icons.dark_mode : Icons.light_mode,
-              color: theme.sub,
-            ),
-            onPressed: () => setState(() => isLight = !isLight),
-          )
-        ],
         title: Text(
           'Feedback',
           style: TextStyle(
