@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../presentation/screens/main_screen/main_screen.dart';
-import '../presentation/screens/settings_screen/settings_screen.dart';
-
 enum ThemePref { light, system, dark }
 
 class UmbrellaApp extends StatefulWidget {
