@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 import '../../../router/app_router.dart' show ThemePref;
+import '../feedback_screen/feedback_screen.dart';
+import '../notification_screen/notification_screen.dart';
 
-/// SettingsScreen controls app-wide theme via a callback,
-/// and also holds a local copy of the selected theme so
-/// the segment control updates immediately.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
@@ -33,8 +32,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void didUpdateWidget(covariant SettingsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the root app changes the theme pref externally,
-    // keep the local selection in sync.
     if (oldWidget.themePref != widget.themePref) {
       _selectedPref = widget.themePref;
     }
@@ -42,9 +39,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _handleThemeChange(ThemePref pref) {
     setState(() {
-      _selectedPref = pref; // updates the segment control immediately
+      _selectedPref = pref;
     });
-    widget.onThemePrefChanged(pref); // updates global app theme
+    widget.onThemePrefChanged(pref);
   }
 
   @override
@@ -76,7 +73,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ================== SETTINGS PAGE (MAIN) ==================
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
@@ -164,14 +160,14 @@ class SettingsPage extends StatelessWidget {
                 color: colors,
                 icon: Icons.notifications_active_outlined,
                 title: "Notification Settings",
-                subtitle: "Alerts, quiet hours, channels",
+                subtitle: "Alerts, real-time indicators",
                 labelStyle: labelStyle,
                 subStyle: subStyle,
                 trailing: Icon(Icons.chevron_right, color: colors.sub),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => NotificationSettingsPage(colors: colors),
+                      builder: (_) => NotificationScreen(appTheme: colors),
                     ),
                   );
                 },
@@ -198,13 +194,35 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _Section(
+            title: "Support",
+            color: colors,
+            children: [
+              _NavTile(
+                color: colors,
+                icon: Icons.feedback_outlined,
+                title: "Contact us",
+                subtitle: "Share feedback or report an issue",
+                labelStyle: labelStyle,
+                subStyle: subStyle,
+                trailing: Icon(Icons.chevron_right, color: colors.sub),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FeedbackScreen(appTheme: colors),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-// ---- Theme Segment (Light / System / Dark) -----------------------------------
 class _ThemeSegment extends StatelessWidget {
   const _ThemeSegment({
     required this.color,
@@ -245,7 +263,9 @@ class _ThemeSegment extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: value == opt.$1 ? color.card : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
-                      border: value == opt.$1 ? Border.all(color: color.border) : null,
+                      border: value == opt.$1
+                          ? Border.all(color: color.border)
+                          : null,
                     ),
                     child: Column(
                       children: [
@@ -277,7 +297,6 @@ class _ThemeSegment extends StatelessWidget {
   }
 }
 
-// ── Building blocks (unchanged from your previous version) ───────────────────
 class _Section extends StatelessWidget {
   const _Section({
     required this.title,
@@ -355,7 +374,12 @@ class _SwitchTile extends StatelessWidget {
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        thumbColor: WidgetStatePropertyAll(color.accent),
+        thumbColor: WidgetStatePropertyAll(color.cardAlt),
+        trackColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+              ? color.accent.withValues(alpha: 0.4)
+              : color.border,
+        ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
@@ -392,245 +416,6 @@ class _NavTile extends StatelessWidget {
       subtitle: subtitle != null ? Text(subtitle!, style: subStyle) : null,
       trailing: trailing ?? Icon(Icons.chevron_right, color: color.sub),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-    );
-  }
-}
-
-// ================== NOTIFICATION SETTINGS PAGE ==================
-// (your existing NotificationSettingsPage code that uses AppTheme as `colors`)
-class NotificationSettingsPage extends StatefulWidget {
-  const NotificationSettingsPage({super.key, required this.colors});
-  final AppTheme colors;
-
-  @override
-  State<NotificationSettingsPage> createState() =>
-      _NotificationSettingsPageState();
-}
-
-class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
-  bool severeAlerts = true;
-  bool rainStarting = true;
-  bool dailySummary = true;
-  TimeOfDay summaryTime = const TimeOfDay(hour: 8, minute: 0);
-
-  bool quietHours = false;
-  TimeOfDay quietStart = const TimeOfDay(hour: 22, minute: 0);
-  TimeOfDay quietEnd = const TimeOfDay(hour: 7, minute: 0);
-
-  bool channelBanner = true;
-  bool channelSound = true;
-  bool channelBadge = true;
-
-  bool areaCurrent = true;
-  bool areaSaved = true;
-
-  AppTheme get c => widget.colors;
-
-  TextStyle get _titleStyle =>
-      TextStyle(color: c.text, fontWeight: FontWeight.w700);
-  TextStyle get _labelStyle =>
-      TextStyle(color: c.text, fontWeight: FontWeight.w600);
-  TextStyle get _subStyle => TextStyle(color: c.sub);
-
-  Future<void> _pickTime(
-      TimeOfDay initial, ValueChanged<TimeOfDay> onPicked) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(ctx).copyWith(
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: c.card,
-              hourMinuteTextColor: c.text,
-              dialHandColor: c.accent,
-            ),
-            colorScheme: Theme.of(ctx).colorScheme.copyWith(
-              primary: c.accent,
-              surface: c.card,
-              onSurface: c.text,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) onPicked(picked);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: c.bg,
-      appBar: AppBar(
-        backgroundColor: c.bg,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: c.text),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text("Notification Settings", style: _titleStyle),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ListView(
-          children: [
-            const SizedBox(height: 8),
-            _Section(
-              title: "Alerts",
-              color: c,
-              children: [
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.warning_amber_rounded,
-                  title: "Severe Weather Alerts",
-                  subtitle: "Storms, extreme temps, hazardous conditions",
-                  value: severeAlerts,
-                  onChanged: (v) => setState(() => severeAlerts = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.beach_access,
-                  title: "Rain Starting",
-                  subtitle: "Notify when rain is about to begin",
-                  value: rainStarting,
-                  onChanged: (v) => setState(() => rainStarting = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.today_outlined,
-                  title: "Daily Summary",
-                  subtitle: "Receive a morning overview",
-                  value: dailySummary,
-                  onChanged: (v) => setState(() => dailySummary = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                if (dailySummary)
-                  ListTile(
-                    leading: Icon(Icons.schedule_rounded, color: c.sub),
-                    title: Text("Summary Time", style: _labelStyle),
-                    subtitle: Text(summaryTime.format(context), style: _subStyle),
-                    trailing: Icon(Icons.chevron_right, color: c.sub),
-                    onTap: () => _pickTime(
-                        summaryTime, (t) => setState(() => summaryTime = t)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _Section(
-              title: "Quiet Hours",
-              color: c,
-              children: [
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.nightlight_round,
-                  title: "Enable Quiet Hours",
-                  subtitle: "Pause notifications during the night",
-                  value: quietHours,
-                  onChanged: (v) => setState(() => quietHours = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                if (quietHours)
-                  Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.login_rounded, color: c.sub),
-                        title: Text("Start", style: _labelStyle),
-                        subtitle:
-                        Text(quietStart.format(context), style: _subStyle),
-                        trailing: Icon(Icons.chevron_right, color: c.sub),
-                        onTap: () => _pickTime(
-                            quietStart, (t) => setState(() => quietStart = t)),
-                      ),
-                      Divider(height: 0, thickness: 1, color: c.border),
-                      ListTile(
-                        leading: Icon(Icons.logout_rounded, color: c.sub),
-                        title: Text("End", style: _labelStyle),
-                        subtitle:
-                        Text(quietEnd.format(context), style: _subStyle),
-                        trailing: Icon(Icons.chevron_right, color: c.sub),
-                        onTap: () => _pickTime(
-                            quietEnd, (t) => setState(() => quietEnd = t)),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _Section(
-              title: "Notification Channels",
-              color: c,
-              children: [
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.text_fields,
-                  title: "Banners",
-                  subtitle: "Show heads-up notifications",
-                  value: channelBanner,
-                  onChanged: (v) => setState(() => channelBanner = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.volume_up_outlined,
-                  title: "Sound",
-                  subtitle: "Play a tone with alerts",
-                  value: channelSound,
-                  onChanged: (v) => setState(() => channelSound = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.circle_notifications_outlined,
-                  title: "Badges",
-                  subtitle: "Show unread count on app icon",
-                  value: channelBadge,
-                  onChanged: (v) => setState(() => channelBadge = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _Section(
-              title: "Areas",
-              color: c,
-              children: [
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.my_location,
-                  title: "Current Location",
-                  subtitle: "Follow you for timely alerts",
-                  value: areaCurrent,
-                  onChanged: (v) => setState(() => areaCurrent = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-                _SwitchTile(
-                  color: c,
-                  icon: Icons.place_outlined,
-                  title: "Saved Locations",
-                  subtitle: "Alert for places you pin",
-                  value: areaSaved,
-                  onChanged: (v) => setState(() => areaSaved = v),
-                  labelStyle: _labelStyle,
-                  subStyle: _subStyle,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
     );
   }
 }

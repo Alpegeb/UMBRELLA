@@ -4,7 +4,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 import '../settings_screen/settings_screen.dart';
-import '../../../router/app_router.dart'; // for ThemePref
+import '../../../router/app_router.dart' show ThemePref;
 
 class MainScreen extends StatelessWidget {
   const MainScreen({
@@ -55,6 +55,9 @@ class _MainScreenBodyState extends State<MainScreenBody> {
   final ScrollController _sc = ScrollController();
   double _t = 0.0;
 
+  ThemePref get themePref => widget.themePref;
+  ValueChanged<ThemePref> get onThemePrefChanged => widget.onThemePrefChanged;
+
   @override
   void initState() {
     super.initState();
@@ -78,10 +81,6 @@ class _MainScreenBodyState extends State<MainScreenBody> {
     final tempSize = lerpDouble(56, 36, _t)!;
     final tempDy = lerpDouble(0, -6, _t)!;
 
-    // ... keep the rest of your build method exactly as you already have it,
-    // except: in _BottomActions, we will change the onTap of the settings icon
-    // to push SettingsScreen with the callback.
-
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
@@ -93,91 +92,86 @@ class _MainScreenBodyState extends State<MainScreenBody> {
           ],
         ),
       ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 36, 16, 16),
-            child: Column(
-              children: [
-                _UmbrellaIndexLine(theme: theme, index: 7.3, t: _t),
-                const SizedBox(height: 10),
-                Transform.translate(
-                  offset: Offset(0, tempDy),
-                  child: _Header(theme: theme, tempSize: tempSize),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: ScrollConfiguration(
-                      behavior: const _NoGlowScroll(),
-                      child: SingleChildScrollView(
-                        controller: _sc,
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: Column(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 36, 16, 16),
+        child: Column(
+          children: [
+            _UmbrellaIndexLine(theme: theme, index: 7.3, t: _t),
+            const SizedBox(height: 10),
+            Transform.translate(
+              offset: Offset(0, tempDy),
+              child: _Header(theme: theme, tempSize: tempSize),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: ScrollConfiguration(
+                  behavior: const _NoGlowScroll(),
+                  child: SingleChildScrollView(
+                    controller: _sc,
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Column(
+                      children: [
+                        _SummaryStrip(theme: theme),
+                        const SizedBox(height: 10),
+                        _HourlyRail(theme: theme),
+                        const SizedBox(height: 10),
+                        _FiveDayCard(theme: theme),
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _SummaryStrip(theme: theme),
-                            const SizedBox(height: 10),
-                            _HourlyRail(theme: theme),
-                            const SizedBox(height: 10),
-                            _FiveDayCard(theme: theme),
-                            const SizedBox(height: 10),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: ConstrainedBox(
-                                    constraints:
-                                    const BoxConstraints(minHeight: 132),
-                                    child: _MetricCard(
-                                      theme: theme,
-                                      title: "FEELS LIKE",
-                                      value: "13°",
-                                      caption: "Wind makes it cooler",
-                                      icon: Icons.thermostat_rounded,
-                                    ),
-                                  ),
+                            Expanded(
+                              child: ConstrainedBox(
+                                constraints:
+                                const BoxConstraints(minHeight: 132),
+                                child: _MetricCard(
+                                  theme: theme,
+                                  title: "FEELS LIKE",
+                                  value: "13°",
+                                  caption: "Wind makes it cooler",
+                                  icon: Icons.thermostat_rounded,
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: ConstrainedBox(
-                                    constraints:
-                                    const BoxConstraints(minHeight: 132),
-                                    child: _MetricAqi(theme: theme),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 10),
-                            _WindCompact(theme: theme),
-                            const SizedBox(height: 10),
-                            _PrecipTile(theme: theme),
-                            const SizedBox(height: 10),
-                            _WindMapCard(theme: theme),
-                            const SizedBox(height: 16),
-                            _BottomActions(theme: theme),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ConstrainedBox(
+                                constraints:
+                                const BoxConstraints(minHeight: 132),
+                                child: _MetricAqi(theme: theme),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        _WindCompact(theme: theme),
+                        const SizedBox(height: 10),
+                        _PrecipTile(theme: theme),
+                        const SizedBox(height: 10),
+                        _WindMapCard(theme: theme),
+                        const SizedBox(height: 16),
+                        _BottomActions(theme: theme),
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Umbrella Index that collapses to a single line with a green dot.
 class _UmbrellaIndexLine extends StatelessWidget {
   const _UmbrellaIndexLine(
       {required this.theme, required this.index, required this.t});
   final AppTheme theme;
-  final double index; // 0..10 (higher = sunnier)
-  final double t; // 0..1 compaction
+  final double index;
+  final double t;
 
   static const Color kIndicatorColor = Color(0xFF00E676);
 
@@ -221,14 +215,20 @@ class _UmbrellaIndexLine extends StatelessWidget {
                 children: [
                   Icon(Icons.umbrella_outlined, color: kIndicatorColor),
                   const SizedBox(width: 8),
-                  Text("Umbrella Index",
-                      style: TextStyle(
-                          color: theme.sub, fontWeight: FontWeight.w700)),
+                  Text(
+                    "Umbrella Index",
+                    style: TextStyle(
+                      color: theme.sub,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const Spacer(),
                   Text(
                     "${clamped.toStringAsFixed(1)}/10",
                     style: TextStyle(
-                        color: theme.text, fontWeight: FontWeight.w800),
+                      color: theme.text,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -316,11 +316,14 @@ class _Header extends StatelessWidget {
           children: [
             Icon(Icons.place_outlined, size: 18, color: theme.sub),
             const SizedBox(width: 6),
-            Text("Istanbul",
-                style: TextStyle(
-                    color: theme.text,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700)),
+            Text(
+              "Istanbul",
+              style: TextStyle(
+                color: theme.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const Spacer(),
             _Chip(theme: theme, text: "Light rain", icon: Icons.beach_access),
           ],
@@ -341,8 +344,10 @@ class _Header extends StatelessWidget {
             const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text("H:19°  L:12°",
-                  style: TextStyle(color: theme.sub, fontSize: 13)),
+              child: Text(
+                "H:19°  L:12°",
+                style: TextStyle(color: theme.sub, fontSize: 13),
+              ),
             ),
             const Spacer(),
             _Chip(theme: theme, text: "AQI 42", icon: Icons.blur_on),
@@ -372,11 +377,14 @@ class _Chip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: theme.sub),
           const SizedBox(width: 6),
-          Text(text,
-              style: TextStyle(
-                  color: theme.sub,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: TextStyle(
+              color: theme.sub,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -469,14 +477,20 @@ class _HourlyTile extends StatelessWidget {
           Text(
             "$temp°",
             style: TextStyle(
-                color: theme.text, fontSize: 16, fontWeight: FontWeight.w700),
+              color: theme.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.water_drop, size: 12, color: theme.sub),
               const SizedBox(width: 4),
-              Text("$rain%", style: TextStyle(color: theme.sub, fontSize: 12)),
+              Text(
+                "$rain%",
+                style: TextStyle(color: theme.sub, fontSize: 12),
+              ),
             ],
           ),
         ],
@@ -511,7 +525,10 @@ class _FiveDayCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SectionLabel(
-              theme: theme, icon: Icons.event_note, title: "5-DAY OUTLOOK"),
+            theme: theme,
+            icon: Icons.event_note,
+            title: "5-DAY OUTLOOK",
+          ),
           const SizedBox(height: 6),
           ...days,
         ],
@@ -622,7 +639,10 @@ class _MetricCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-                color: theme.text, fontSize: 26, fontWeight: FontWeight.w800),
+              color: theme.text,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -654,7 +674,10 @@ class _MetricAqi extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel(
-              theme: theme, icon: Icons.blur_on, title: "AIR QUALITY"),
+            theme: theme,
+            icon: Icons.blur_on,
+            title: "AIR QUALITY",
+          ),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -668,9 +691,10 @@ class _MetricAqi extends StatelessWidget {
                 child: Text(
                   "AQI $aqi • Good",
                   style: TextStyle(
-                      color: theme.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700),
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -834,7 +858,6 @@ class _CompassPainter extends CustomPainter {
     final c = Offset(size.width / 2, size.height / 2);
     final r = size.width / 2 - 4;
 
-    // Face
     final bg = Paint()..color = theme.cardAlt;
     final border = Paint()
       ..color = theme.border
@@ -843,13 +866,12 @@ class _CompassPainter extends CustomPainter {
     canvas.drawCircle(c, r, bg);
     canvas.drawCircle(c, r, border);
 
-    // North tick
     final tick = Paint()
       ..color = theme.sub
       ..strokeWidth = 2;
-    canvas.drawLine(Offset(c.dx, c.dy - r), Offset(c.dx, c.dy - r + 8), tick);
+    canvas.drawLine(
+        Offset(c.dx, c.dy - r), Offset(c.dx, c.dy - r + 8), tick);
 
-    // Direction arrow (NE ~ 45°)
     final double angle = -45 * math.pi / 180;
     final double ux = math.cos(angle);
     final double uy = math.sin(angle);
@@ -862,23 +884,28 @@ class _CompassPainter extends CustomPainter {
     final Offset base = Offset(c.dx + baseR * ux, c.dy + baseR * uy);
     final Offset tip = Offset(c.dx + tipR * ux, c.dy + tipR * uy);
 
-    // Shaft
     final Paint shaft = Paint()
       ..color = theme.accent
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(start, base, shaft);
 
-    // Arrowhead
     const double headLen = 8;
     const double headWidth = 7;
-    final Offset headBase = Offset(tip.dx - ux * headLen, tip.dy - uy * headLen);
+    final Offset headBase = Offset(
+      tip.dx - ux * headLen,
+      tip.dy - uy * headLen,
+    );
     final double px = -uy, py = ux;
     final Offset p1 = tip;
-    final Offset p2 =
-    Offset(headBase.dx + px * (headWidth / 2), headBase.dy + py * (headWidth / 2));
-    final Offset p3 =
-    Offset(headBase.dx - px * (headWidth / 2), headBase.dy - py * (headWidth / 2));
+    final Offset p2 = Offset(
+      headBase.dx + px * (headWidth / 2),
+      headBase.dy + py * (headWidth / 2),
+    );
+    final Offset p3 = Offset(
+      headBase.dx - px * (headWidth / 2),
+      headBase.dy - py * (headWidth / 2),
+    );
 
     final Path head = Path()
       ..moveTo(p1.dx, p1.dy)
@@ -910,7 +937,8 @@ class _PrecipTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel(theme: theme, icon: Icons.invert_colors, title: "PRECIPITATION"),
+          _SectionLabel(
+              theme: theme, icon: Icons.invert_colors, title: "PRECIPITATION"),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -918,7 +946,10 @@ class _PrecipTile extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 "0 mm today",
-                style: TextStyle(color: theme.text, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               Text(
@@ -949,7 +980,8 @@ class _WindMapCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel(theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
+          _SectionLabel(
+              theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
           const SizedBox(height: 8),
           Container(
             height: 140,
@@ -976,11 +1008,9 @@ class _BottomActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // We need access to MainScreenBody's themePref + onThemePrefChanged,
-    // so we will get them via the nearest MainScreenBody in the tree.
     final state = context.findAncestorStateOfType<_MainScreenBodyState>();
-    final themePref = state?.widget.themePref;
-    final onThemePrefChanged = state?.widget.onThemePrefChanged;
+    final themePref = state?.themePref;
+    final onThemePrefChanged = state?.onThemePrefChanged;
 
     return Row(
       children: [
@@ -988,9 +1018,7 @@ class _BottomActions extends StatelessWidget {
           theme: theme,
           icon: Icons.list_alt,
           tooltip: "List",
-          onTap: () {
-
-          },
+          onTap: () {},
         ),
         const Spacer(),
         _PagerDots(theme: theme, count: 5, active: 1),
@@ -1001,7 +1029,6 @@ class _BottomActions extends StatelessWidget {
           tooltip: "Settings",
           onTap: () {
             if (themePref == null || onThemePrefChanged == null) return;
-
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -1137,7 +1164,6 @@ class _NoGlowScroll extends ScrollBehavior {
   @override
   Widget buildOverscrollIndicator(
       BuildContext context, Widget child, ScrollableDetails details) {
-    // Disable the default glowing overscroll indicator.
     return child;
   }
 }
