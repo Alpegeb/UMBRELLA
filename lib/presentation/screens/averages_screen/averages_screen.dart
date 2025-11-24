@@ -101,7 +101,7 @@ class _AveragesScreenState extends State<AveragesScreen> {
                 const SizedBox(height: 16),
                 _buildHeader(colors),
                 const SizedBox(height: 16),
-                CustomSegmentedControl(
+                _CustomSegmentedControl(
                   mode: _currentMode,
                   colors: colors,
                   onModeChanged: (mode) {
@@ -111,9 +111,9 @@ class _AveragesScreenState extends State<AveragesScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                DailyAverageCard(mode: _currentMode, colors: colors),
+                _DailyAverageCard(mode: _currentMode, colors: colors),
                 const SizedBox(height: 12),
-                MonthlyAverageCard(mode: _currentMode, colors: colors),
+                _MonthlyAverageCard(mode: _currentMode, colors: colors),
                 const SizedBox(height: 34),
               ],
             ),
@@ -155,13 +155,12 @@ class _AveragesScreenState extends State<AveragesScreen> {
   }
 }
 
-class CustomSegmentedControl extends StatelessWidget {
+class _CustomSegmentedControl extends StatelessWidget {
   final AveragesMode mode;
   final _AveragesPalette colors;
   final ValueChanged<AveragesMode> onModeChanged;
 
-  const CustomSegmentedControl({
-    super.key,
+  const _CustomSegmentedControl({
     required this.mode,
     required this.colors,
     required this.onModeChanged,
@@ -185,7 +184,11 @@ class CustomSegmentedControl extends StatelessWidget {
     );
   }
 
-  Widget _buildSegment(String text, AveragesMode segmentMode, Color activeColor) {
+  Widget _buildSegment(
+      String text,
+      AveragesMode segmentMode,
+      Color activeColor,
+      ) {
     final bool isActive = mode == segmentMode;
 
     return Expanded(
@@ -199,7 +202,7 @@ class CustomSegmentedControl extends StatelessWidget {
             boxShadow: isActive
                 ? [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               )
@@ -221,12 +224,11 @@ class CustomSegmentedControl extends StatelessWidget {
   }
 }
 
-class DailyAverageCard extends StatelessWidget {
+class _DailyAverageCard extends StatelessWidget {
   final AveragesMode mode;
   final _AveragesPalette colors;
 
-  const DailyAverageCard({
-    super.key,
+  const _DailyAverageCard({
     required this.mode,
     required this.colors,
   });
@@ -244,7 +246,8 @@ class DailyAverageCard extends StatelessWidget {
         ? "For November 8, the normal temperature range is 7°–19°, and the average high is 15°. Today’s high temperature is 21°."
         : "For November 8, the normal precipitation is 2.5 mm. Today's total is 3.0 mm.";
 
-    final String normalRange = isTemp ? "Normal Range (7°–19°)" : "Normal Range (1–3 mm)";
+    final String normalRange =
+    isTemp ? "Normal Range (7°–19°)" : "Normal Range (1–3 mm)";
     final String todayLabel = "Today";
 
     final List<Color> gradientColors =
@@ -261,11 +264,20 @@ class DailyAverageCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(headline, style: AppTextStyles.headline.copyWith(color: accentColor)),
+          Text(
+            headline,
+            style: AppTextStyles.headline.copyWith(color: accentColor),
+          ),
           const SizedBox(height: 4),
-          Text(subtext, style: AppTextStyles.subHeadline.copyWith(color: colors.subtext)),
+          Text(
+            subtext,
+            style: AppTextStyles.subHeadline.copyWith(color: colors.subtext),
+          ),
           const SizedBox(height: 16),
-          Text(largeNumber, style: AppTextStyles.largeNumber.copyWith(color: colors.text)),
+          Text(
+            largeNumber,
+            style: AppTextStyles.largeNumber.copyWith(color: colors.text),
+          ),
           const SizedBox(height: 24),
           Container(
             height: 40,
@@ -348,12 +360,11 @@ class DailyAverageCard extends StatelessWidget {
   }
 }
 
-class MonthlyAverageCard extends StatelessWidget {
+class _MonthlyAverageCard extends StatelessWidget {
   final AveragesMode mode;
   final _AveragesPalette colors;
 
-  const MonthlyAverageCard({
-    super.key,
+  const _MonthlyAverageCard({
     required this.mode,
     required this.colors,
   });
@@ -371,7 +382,7 @@ class MonthlyAverageCard extends StatelessWidget {
     return LinearGradient(
       colors: [
         colors.accentBlue,
-        colors.accentBlue.withOpacity(0.7),
+        colors.accentBlue.withValues(alpha: 0.7),
       ],
     );
   }

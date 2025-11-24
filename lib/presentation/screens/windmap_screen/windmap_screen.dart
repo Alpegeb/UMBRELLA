@@ -53,7 +53,7 @@ class WindMapScreen extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w500,
-                ).copyWith(color: colors.textSecondary.withOpacity(0.3)),
+                ).copyWith(color: colors.textSecondary.withValues(alpha: 0.3)),
               ),
             ),
           ),
