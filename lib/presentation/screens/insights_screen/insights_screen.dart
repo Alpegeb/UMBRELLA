@@ -9,28 +9,53 @@ class InsightsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: theme.bg,
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 36, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _TopBar(theme: theme),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 20),
-                children: [
-                  _Insight(theme: theme, icon: Icons.masks_rounded, title: "BREATHE EASY", text: "Today's air quality is ‘Good’ (AQI 42). Perfect for fresh air or outdoor activities."),
-                  const SizedBox(height: 10),
-                  _Insight(theme: theme, icon: Icons.thermostat_rounded, title: "THE SWEET SPOT", text: "15°C — perfect for a walk or light jog."),
-                  const SizedBox(height: 10),
-                  _Insight(theme: theme, icon: Icons.auto_awesome_rounded, title: "COZY & FOCUSED", text: "Cloudy skies reduce glare, improving focus for indoor tasks."),
-                  const SizedBox(height: 10),
-                  _Insight(theme: theme, icon: Icons.umbrella_rounded, title: "PLAN AHEAD", text: "Umbrella Index is 7.3/10. A compact umbrella might help later."),
-                ],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TopBar(theme: theme),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  children: [
+                    _Insight(
+                      theme: theme,
+                      icon: Icons.masks_rounded,
+                      title: "BREATHE EASY",
+                      text:
+                      "Today's air quality is ‘Good’ (AQI 42). Perfect for fresh air or outdoor activities.",
+                    ),
+                    const SizedBox(height: 10),
+                    _Insight(
+                      theme: theme,
+                      icon: Icons.thermostat_rounded,
+                      title: "THE SWEET SPOT",
+                      text: "15°C — perfect for a walk or light jog.",
+                    ),
+                    const SizedBox(height: 10),
+                    _Insight(
+                      theme: theme,
+                      icon: Icons.auto_awesome_rounded,
+                      title: "COZY & FOCUSED",
+                      text:
+                      "Cloudy skies reduce glare, improving focus for indoor tasks.",
+                    ),
+                    const SizedBox(height: 10),
+                    _Insight(
+                      theme: theme,
+                      icon: Icons.umbrella_rounded,
+                      title: "PLAN AHEAD",
+                      text:
+                      "Umbrella Index is 7.3/10. A compact umbrella might help later.",
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -45,12 +70,19 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Icon(Icons.arrow_back_ios_new, color: theme.text),
+        IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: theme.text),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
-        const SizedBox(width: 12),
-        Text("Today's Insights", style: TextStyle(color: theme.text, fontSize: 28, fontWeight: FontWeight.w800)),
+        const SizedBox(width: 4),
+        Text(
+          "Today's Insights",
+          style: TextStyle(
+            color: theme.text,
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ],
     );
   }
@@ -85,11 +117,26 @@ class _Insight extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: theme.sub),
               const SizedBox(width: 6),
-              Text(title, style: TextStyle(color: theme.sub, fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: TextStyle(
+                  color: theme.sub,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(text, style: TextStyle(color: theme.text, fontSize: 15, height: 1.4)),
+          Text(
+            text,
+            style: TextStyle(
+              color: theme.text,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );

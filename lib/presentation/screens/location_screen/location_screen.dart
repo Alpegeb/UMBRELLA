@@ -20,11 +20,41 @@ class CityData {
 }
 
 final _mockCities = [
-  const CityData(name: "Istanbul", subtitle: "My Location • Home", condition: "Cloudy", temp: 15, hi: 19, lo: 15),
-  const CityData(name: "Ankara", subtitle: "23:51", condition: "Mostly Cloudy", temp: 11, hi: 20, lo: 6),
-  const CityData(name: "Marmaris", subtitle: "23:51", condition: "Partly Cloudy", temp: 18, hi: 25, lo: 15),
-  const CityData(name: "Türkbükü", subtitle: "23:51", condition: "Mostly Cloudy", temp: 18, hi: 24, lo: 16),
-  const CityData(name: "Midilli", subtitle: "22:51", condition: "Cloudy", temp: 15, hi: 19, lo: 13),
+  const CityData(
+      name: "Istanbul",
+      subtitle: "My Location • Home",
+      condition: "Cloudy",
+      temp: 15,
+      hi: 19,
+      lo: 15),
+  const CityData(
+      name: "Ankara",
+      subtitle: "23:51",
+      condition: "Mostly Cloudy",
+      temp: 11,
+      hi: 20,
+      lo: 6),
+  const CityData(
+      name: "Marmaris",
+      subtitle: "23:51",
+      condition: "Partly Cloudy",
+      temp: 18,
+      hi: 25,
+      lo: 15),
+  const CityData(
+      name: "Türkbükü",
+      subtitle: "23:51",
+      condition: "Mostly Cloudy",
+      temp: 18,
+      hi: 24,
+      lo: 16),
+  const CityData(
+      name: "Midilli",
+      subtitle: "22:51",
+      condition: "Cloudy",
+      temp: 15,
+      hi: 19,
+      lo: 13),
 ];
 
 class LocationScreen extends StatefulWidget {
@@ -40,7 +70,7 @@ class _LocationScreenState extends State<LocationScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = "";
 
-  List<CityData> get _filteredCities {
+  List<CityData> get _filtered {
     if (_query.trim().isEmpty) return _mockCities;
     final q = _query.toLowerCase();
     return _mockCities.where((c) {
@@ -59,33 +89,46 @@ class _LocationScreenState extends State<LocationScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
+    final results = _filtered;
 
     return Scaffold(
       backgroundColor: theme.bg,
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 36, 16, 16),
-        child: Column(
-          children: [
-            _TopBar(theme: theme),
-            const SizedBox(height: 16),
-            _SearchBar(
-              theme: theme,
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _query = v),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(bottom: 20),
-                itemCount: _filteredCities.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, i) => _CityCard(
-                  theme: theme,
-                  city: _filteredCities[i],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            children: [
+              _TopBar(theme: theme),
+              const SizedBox(height: 16),
+              _SearchBar(
+                theme: theme,
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _query = v),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: results.isEmpty
+                    ? Center(
+                  child: Text(
+                    _query.trim().isEmpty
+                        ? "No locations available."
+                        : 'No locations found for “$_query”.',
+                    style:
+                    TextStyle(color: theme.sub, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+                    : ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  itemCount: results.length,
+                  separatorBuilder: (_, __) =>
+                  const SizedBox(height: 10),
+                  itemBuilder: (_, i) =>
+                      _CityCard(theme: theme, city: results[i]),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -100,11 +143,11 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Icon(Icons.arrow_back_ios_new, color: theme.text),
+        IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: theme.text),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 4),
         Text(
           "Locations",
           style: TextStyle(
