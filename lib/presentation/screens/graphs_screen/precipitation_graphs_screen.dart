@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 
@@ -89,7 +89,6 @@ class _PrecipitationCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               children: [
                 Icon(Icons.circle_outlined, size: 18, color: theme.sub),
@@ -108,8 +107,6 @@ class _PrecipitationCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-
-            // *** Graph area – fills remaining vertical space in card ***
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -125,8 +122,6 @@ class _PrecipitationCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-
-            // Subtitle
             Text(
               subtitle,
               style: TextStyle(
@@ -157,7 +152,6 @@ class _PrecipLinePainter extends CustomPainter {
     if (values.isEmpty) return;
 
     const padding = 8.0;
-    // Use full width, only vertical padding so it fills the card horizontally.
     final rect = Rect.fromLTWH(
       0,
       padding,
@@ -165,13 +159,11 @@ class _PrecipLinePainter extends CustomPainter {
       size.height - 2 * padding,
     );
 
-    // Dynamic min/max so the curve fills vertically.
-    double minVal = values.reduce(min);
-    double maxVal = values.reduce(max);
+    double minVal = values.reduce(math.min);
+    double maxVal = values.reduce(math.max);
     final span = (maxVal - minVal).abs() < 1e-6 ? 1.0 : (maxVal - minVal);
     double norm(double v) => (v - minVal) / span;
 
-    // Grid lines
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
@@ -192,7 +184,7 @@ class _PrecipLinePainter extends CustomPainter {
 
     Offset p(int i) {
       final x = rect.left + i * stepX;
-      final t = norm(values[i]); // 0..1
+      final t = norm(values[i]);
       final y = rect.bottom - t * rect.height;
       return Offset(x, y);
     }

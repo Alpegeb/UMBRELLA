@@ -146,6 +146,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                                     MaterialPageRoute(
                                       builder: (_) => TemperatureGraphsScreen(
                                         appTheme: theme,
+                                        initialMode: TempMode.actualVsFeels,
                                       ),
                                     ),
                                   );
@@ -399,13 +400,27 @@ class _Header extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              "15°",
-              style: TextStyle(
-                color: theme.text,
-                fontSize: tempSize,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TemperatureGraphsScreen(
+                      appTheme: theme,
+                      initialMode: TempMode.actualOnly,
+                    ),
+                  ),
+                );
+              },
+              child: Text(
+                "15°",
+                style: TextStyle(
+                  color: theme.text,
+                  fontSize: tempSize,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -577,7 +592,8 @@ class _FiveDayCard extends StatelessWidget {
       _DayRow(theme: theme, day: "Thu", hi: 18, lo: 11, icon: Icons.cloud),
       _DayRow(theme: theme, day: "Fri", hi: 16, lo: 10, icon: Icons.beach_access),
       _DayRow(theme: theme, day: "Sat", hi: 14, lo: 9, icon: Icons.cloud_queue),
-      _DayRow(theme: theme, day: "Sun", hi: 15, lo: 8, icon: Icons.wb_sunny_outlined),
+      _DayRow(
+          theme: theme, day: "Sun", hi: 15, lo: 8, icon: Icons.wb_sunny_outlined),
     ];
 
     return Container(

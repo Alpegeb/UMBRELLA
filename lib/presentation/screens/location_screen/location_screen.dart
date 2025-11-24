@@ -90,6 +90,7 @@ class _LocationScreenState extends State<LocationScreen> {
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final results = _filtered;
+    final trimmedQuery = _query.trim();
 
     return Scaffold(
       backgroundColor: theme.bg,
@@ -110,11 +111,14 @@ class _LocationScreenState extends State<LocationScreen> {
                 child: results.isEmpty
                     ? Center(
                   child: Text(
-                    _query.trim().isEmpty
+                    // New explicit error message
+                    trimmedQuery.isEmpty
                         ? "No locations available."
-                        : 'No locations found for “$_query”.',
-                    style:
-                    TextStyle(color: theme.sub, fontSize: 14),
+                        : 'City "$trimmedQuery" not found.',
+                    style: TextStyle(
+                      color: theme.sub,
+                      fontSize: 14,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 )

@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 
@@ -6,9 +6,11 @@ class TemperatureGraphsScreen extends StatefulWidget {
   const TemperatureGraphsScreen({
     super.key,
     required this.appTheme,
+    this.initialMode = TempMode.actualVsFeels,
   });
 
   final AppTheme appTheme;
+  final TempMode initialMode;
 
   @override
   State<TemperatureGraphsScreen> createState() =>
@@ -16,7 +18,13 @@ class TemperatureGraphsScreen extends StatefulWidget {
 }
 
 class _TemperatureGraphsScreenState extends State<TemperatureGraphsScreen> {
-  TempMode _mode = TempMode.actualVsFeels;
+  late TempMode _mode;
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.initialMode;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +94,6 @@ class _TemperatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Normalized-ish demo data (we’ll stretch them to full height in the painter).
     final actual = <double>[0.20, 0.35, 0.50, 0.80, 0.65, 0.45, 0.30];
     final feels = <double>[0.18, 0.32, 0.48, 0.72, 0.60, 0.40, 0.28];
     final showFeels = mode == TempMode.actualVsFeels;
@@ -103,22 +110,23 @@ class _TemperatureCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               children: [
                 Icon(Icons.wb_sunny_outlined, size: 18, color: theme.sunny),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Conditions',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
                 const Spacer(),
                 Icon(Icons.close, size: 18, color: theme.sub),
               ],
             ),
             const SizedBox(height: 8),
-
-            // Main temp line
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -144,8 +152,6 @@ class _TemperatureCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-
-            // *** Graph area – fills all remaining vertical space in the card ***
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -163,8 +169,6 @@ class _TemperatureCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-
-            // Time labels
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -176,8 +180,6 @@ class _TemperatureCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-
-            // Mode segmented control
             Container(
               decoration: BoxDecoration(
                 color: theme.cardAlt,
@@ -211,8 +213,6 @@ class _TemperatureCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-
-            // Description
             Text(
               mode == TempMode.actualVsFeels
                   ? 'Perceived temperature with comparison to actual values.'
@@ -290,22 +290,19 @@ class _TempChartPainter extends CustomPainter {
       size.height - 2 * verticalPadding,
     );
 
-    // --- Compute dynamic min/max across all series so the graph
-    //     stretches vertically and doesn’t look “flat/weird”. ---
-    double minVal = actual.reduce(min);
-    double maxVal = actual.reduce(max);
+    double minVal = actual.reduce(math.min);
+    double maxVal = actual.reduce(math.max);
 
     if (feelsLike != null && feelsLike!.isNotEmpty) {
       for (final v in feelsLike!) {
-        minVal = min(minVal, v);
-        maxVal = max(maxVal, v);
+        minVal = math.min(minVal, v);
+        maxVal = math.max(maxVal, v);
       }
     }
 
     final span = (maxVal - minVal).abs() < 1e-6 ? 1.0 : (maxVal - minVal);
     double norm(double v) => (v - minVal) / span;
 
-    // Grid lines
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
@@ -325,7 +322,7 @@ class _TempChartPainter extends CustomPainter {
 
       Offset p(int i) {
         final x = rect.left + i * stepX;
-        final t = norm(values[i]); // 0..1
+        final t = norm(values[i]);
         final y = rect.bottom - t * rect.height;
         return Offset(x, y);
       }
@@ -338,7 +335,6 @@ class _TempChartPainter extends CustomPainter {
       return path;
     }
 
-    // Feels-like line (if enabled)
     if (feelsLike != null &&
         feelsColor != null &&
         feelsLike!.length == actual.length) {
@@ -351,7 +347,6 @@ class _TempChartPainter extends CustomPainter {
       canvas.drawPath(pathFeels, paintFeels);
     }
 
-    // Actual temperature line
     final pathActual = buildPath(actual);
     final paintActual = Paint()
       ..color = actualColor
