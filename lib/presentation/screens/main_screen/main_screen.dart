@@ -9,6 +9,8 @@ import '../location_screen/location_screen.dart';
 import '../insights_screen/insights_screen.dart';
 import '../averages_screen/averages_screen.dart';
 import '../windmap_screen/windmap_screen.dart';
+import '../graphs_screen/temperature_graphs_screen.dart';
+import '../graphs_screen/precipitation_graphs_screen.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({
@@ -137,15 +139,27 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: ConstrainedBox(
-                                constraints:
-                                const BoxConstraints(minHeight: 132),
-                                child: _MetricCard(
-                                  theme: theme,
-                                  title: "FEELS LIKE",
-                                  value: "13°",
-                                  caption: "Wind makes it cooler",
-                                  icon: Icons.thermostat_rounded,
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => TemperatureGraphsScreen(
+                                        appTheme: theme,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: ConstrainedBox(
+                                  constraints:
+                                  const BoxConstraints(minHeight: 132),
+                                  child: _MetricCard(
+                                    theme: theme,
+                                    title: "FEELS LIKE",
+                                    value: "13°",
+                                    caption: "Wind makes it cooler",
+                                    icon: Icons.thermostat_rounded,
+                                  ),
                                 ),
                               ),
                             ),
@@ -175,7 +189,19 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                         const SizedBox(height: 10),
                         _WindCompact(theme: theme),
                         const SizedBox(height: 10),
-                        _PrecipTile(theme: theme),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PrecipitationGraphsScreen(
+                                  appTheme: theme,
+                                ),
+                              ),
+                            );
+                          },
+                          child: _PrecipTile(theme: theme),
+                        ),
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () {

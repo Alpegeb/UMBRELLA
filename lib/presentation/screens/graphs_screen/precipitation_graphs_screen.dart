@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 
@@ -7,7 +8,6 @@ class PrecipitationGraphsScreen extends StatelessWidget {
     required this.appTheme,
   });
 
-  /// Uygulamanın o anki teması (MainScreen'den gönder)
   final AppTheme appTheme;
 
   @override
@@ -20,7 +20,7 @@ class PrecipitationGraphsScreen extends StatelessWidget {
         centerTitle: false,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: appTheme.text),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(
           'Precipitation Graphs',
@@ -36,33 +36,18 @@ class PrecipitationGraphsScreen extends StatelessWidget {
           child: Column(
             children: [
               Expanded(
-                child: Row(
-                  children: const [
-                    Expanded(
-                      child: _PrecipitationCard(
-                        theme: AppTheme.light,
-                        title: 'Chance of Precipitation',
-                        subtitle: "Tuesday's chance: 16%",
-                      ),
-                    ),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: _PrecipitationCard(
-                        theme: AppTheme.dark,
-                        title: 'Chance of Precipitation',
-                        subtitle: "Tuesday's chance: 16%",
-                      ),
-                    ),
-                  ],
+                child: _PrecipitationCard(
+                  theme: appTheme,
+                  title: 'Chance of Precipitation',
+                  subtitle: "Tuesday's chance: 16%",
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 'This screen illustrates the chance of precipitation across '
-                'different hours of the day using a smooth line chart. The visual '
-                'representation enables users to quickly interpret rainfall '
-                'likelihood and timing. Both light and dark theme versions '
-                'maintain visual clarity.',
+                    'different hours of the day using a smooth line chart. The visual '
+                    'representation enables users to quickly interpret rainfall '
+                    'likelihood and timing.',
                 style: TextStyle(
                   color: appTheme.sub,
                   fontSize: 13,
@@ -90,7 +75,7 @@ class _PrecipitationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final values = <double>[0.05, 0.15, 0.30, 0.55, 0.75, 0.60, 0.35];
+    final values = <double>[0.05, 0.10, 0.25, 0.70, 0.50, 0.30, 0.15];
 
     return Container(
       decoration: BoxDecoration(
@@ -104,14 +89,10 @@ class _PrecipitationCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
+            // Header
             Row(
               children: [
-                Icon(
-                  Icons.circle_outlined,
-                  size: 18,
-                  color: theme.sub,
-                ),
+                Icon(Icons.circle_outlined, size: 18, color: theme.sub),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -127,20 +108,25 @@ class _PrecipitationCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            // Graph
+
+            // *** Graph area – fills remaining vertical space in card ***
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: CustomPaint(
-                  painter: _SimpleLineChartPainter(
-                    values: values,
-                    lineColor: theme.accent,
-                    gridColor: theme.border.withValues(alpha: 0.4),
+                child: SizedBox.expand(
+                  child: CustomPaint(
+                    painter: _PrecipLinePainter(
+                      values: values,
+                      lineColor: theme.accent,
+                      gridColor: theme.border.withValues(alpha: 0.25),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
+
+            // Subtitle
             Text(
               subtitle,
               style: TextStyle(
@@ -155,66 +141,67 @@ class _PrecipitationCard extends StatelessWidget {
   }
 }
 
-/// Basit smooth çizgi grafiği
-class _SimpleLineChartPainter extends CustomPainter {
-  _SimpleLineChartPainter({
+class _PrecipLinePainter extends CustomPainter {
+  _PrecipLinePainter({
     required this.values,
     required this.lineColor,
     required this.gridColor,
   });
 
-  final List<double> values; // 0..1 arası normalize
+  final List<double> values;
   final Color lineColor;
   final Color gridColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final padding = 12.0;
-    final chartRect = Rect.fromLTWH(
+    if (values.isEmpty) return;
+
+    const padding = 8.0;
+    // Use full width, only vertical padding so it fills the card horizontally.
+    final rect = Rect.fromLTWH(
+      0,
       padding,
-      padding,
-      size.width - 2 * padding,
+      size.width,
       size.height - 2 * padding,
     );
 
-    // grid lines
+    // Dynamic min/max so the curve fills vertically.
+    double minVal = values.reduce(min);
+    double maxVal = values.reduce(max);
+    final span = (maxVal - minVal).abs() < 1e-6 ? 1.0 : (maxVal - minVal);
+    double norm(double v) => (v - minVal) / span;
+
+    // Grid lines
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
 
     for (int i = 1; i <= 3; i++) {
-      final dy = chartRect.top + chartRect.height * i / 4;
+      final dy = rect.top + rect.height * i / 4;
       canvas.drawLine(
-        Offset(chartRect.left, dy),
-        Offset(chartRect.right, dy),
+        Offset(rect.left, dy),
+        Offset(rect.right, dy),
         gridPaint,
       );
     }
 
-    // line
     if (values.length < 2) return;
 
     final path = Path();
-    final stepX = chartRect.width / (values.length - 1);
+    final stepX = rect.width / (values.length - 1);
 
-    Offset pointFor(int i) {
-      final x = chartRect.left + stepX * i;
-      final y = chartRect.bottom - values[i] * chartRect.height;
+    Offset p(int i) {
+      final x = rect.left + i * stepX;
+      final t = norm(values[i]); // 0..1
+      final y = rect.bottom - t * rect.height;
       return Offset(x, y);
     }
 
-    path.moveTo(pointFor(0).dx, pointFor(0).dy);
+    path.moveTo(p(0).dx, p(0).dy);
     for (int i = 1; i < values.length; i++) {
-      final p0 = pointFor(i - 1);
-      final p1 = pointFor(i);
-      final mid = Offset(
-        (p0.dx + p1.dx) / 2,
-        (p0.dy + p1.dy) / 2,
-      );
-      path.quadraticBezierTo(p0.dx, p0.dy, mid.dx, mid.dy);
+      final pt = p(i);
+      path.lineTo(pt.dx, pt.dy);
     }
-    path.lineTo(pointFor(values.length - 1).dx,
-        pointFor(values.length - 1).dy);
 
     final linePaint = Paint()
       ..color = lineColor
@@ -226,7 +213,7 @@ class _SimpleLineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SimpleLineChartPainter oldDelegate) {
+  bool shouldRepaint(covariant _PrecipLinePainter oldDelegate) {
     return oldDelegate.values != values ||
         oldDelegate.lineColor != lineColor ||
         oldDelegate.gridColor != gridColor;

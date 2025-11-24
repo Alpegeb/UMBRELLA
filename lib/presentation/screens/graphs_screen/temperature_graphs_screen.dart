@@ -1,7 +1,8 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 
-class TemperatureGraphsScreen extends StatelessWidget {
+class TemperatureGraphsScreen extends StatefulWidget {
   const TemperatureGraphsScreen({
     super.key,
     required this.appTheme,
@@ -10,21 +11,31 @@ class TemperatureGraphsScreen extends StatelessWidget {
   final AppTheme appTheme;
 
   @override
+  State<TemperatureGraphsScreen> createState() =>
+      _TemperatureGraphsScreenState();
+}
+
+class _TemperatureGraphsScreenState extends State<TemperatureGraphsScreen> {
+  TempMode _mode = TempMode.actualVsFeels;
+
+  @override
   Widget build(BuildContext context) {
+    final theme = widget.appTheme;
+
     return Scaffold(
-      backgroundColor: appTheme.bg,
+      backgroundColor: theme.bg,
       appBar: AppBar(
-        backgroundColor: appTheme.bg,
+        backgroundColor: theme.bg,
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: appTheme.text),
-          onPressed: () => Navigator.of(context).pop(),
+          icon: Icon(Icons.arrow_back, color: theme.text),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(
           'Temperature Graphs',
           style: TextStyle(
-            color: appTheme.text,
+            color: theme.text,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -35,37 +46,19 @@ class TemperatureGraphsScreen extends StatelessWidget {
           child: Column(
             children: [
               Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: const [
-                    _TemperatureCard(
-                      theme: AppTheme.light,
-                      mode: _TempCardMode.actualOnly,
-                    ),
-                    _TemperatureCard(
-                      theme: AppTheme.dark,
-                      mode: _TempCardMode.actualOnly,
-                    ),
-                    _TemperatureCard(
-                      theme: AppTheme.light,
-                      mode: _TempCardMode.actualVsFeels,
-                    ),
-                    _TemperatureCard(
-                      theme: AppTheme.dark,
-                      mode: _TempCardMode.actualVsFeels,
-                    ),
-                  ],
+                child: _TemperatureCard(
+                  theme: theme,
+                  mode: _mode,
+                  onModeChanged: (m) => setState(() => _mode = m),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text(
-                'This screen presents the temperature forecast with options to '
-                'view both “Actual” and “Feels like” values. The graphs show '
-                'daily fluctuations and highlight the warmest period.',
+                'This screen presents the temperature forecast with options '
+                    'to view both “Actual” and “Feels like” values. The graph '
+                    'shows daily fluctuations and highlights the warmest period.',
                 style: TextStyle(
-                  color: appTheme.sub,
+                  color: theme.sub,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -78,22 +71,25 @@ class TemperatureGraphsScreen extends StatelessWidget {
   }
 }
 
-enum _TempCardMode { actualOnly, actualVsFeels }
+enum TempMode { actualOnly, actualVsFeels }
 
 class _TemperatureCard extends StatelessWidget {
   const _TemperatureCard({
     required this.theme,
     required this.mode,
+    required this.onModeChanged,
   });
 
   final AppTheme theme;
-  final _TempCardMode mode;
+  final TempMode mode;
+  final ValueChanged<TempMode> onModeChanged;
 
   @override
   Widget build(BuildContext context) {
-    // örnek veri: 00–24 arası sıcaklık
-    final actual = <double>[0.35, 0.40, 0.45, 0.60, 0.80, 0.70, 0.55];
-    final feels = <double>[0.30, 0.38, 0.42, 0.55, 0.72, 0.65, 0.50];
+    // Normalized-ish demo data (we’ll stretch them to full height in the painter).
+    final actual = <double>[0.20, 0.35, 0.50, 0.80, 0.65, 0.45, 0.30];
+    final feels = <double>[0.18, 0.32, 0.48, 0.72, 0.60, 0.40, 0.28];
+    final showFeels = mode == TempMode.actualVsFeels;
 
     return Container(
       decoration: BoxDecoration(
@@ -107,11 +103,10 @@ class _TemperatureCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // header
+            // Header
             Row(
               children: [
-                Icon(Icons.wb_sunny_outlined,
-                    size: 18, color: theme.sunny),
+                Icon(Icons.wb_sunny_outlined, size: 18, color: theme.sunny),
                 const SizedBox(width: 8),
                 const Text(
                   'Conditions',
@@ -122,7 +117,8 @@ class _TemperatureCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // sıcaklık satırı
+
+            // Main temp line
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -148,25 +144,27 @@ class _TemperatureCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            // grafik
+
+            // *** Graph area – fills all remaining vertical space in the card ***
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                child: CustomPaint(
-                  painter: _TempChartPainter(
-                    actual: actual,
-                    feelsLike: mode == _TempCardMode.actualVsFeels
-                        ? feels
-                        : null,
-                    actualColor: theme.sunny,
-                    feelsColor: theme.sub,
-                    gridColor: theme.border.withValues(alpha: 0.4),
+                child: SizedBox.expand(
+                  child: CustomPaint(
+                    painter: _TempChartPainter(
+                      actual: actual,
+                      feelsLike: showFeels ? feels : null,
+                      actualColor: theme.sunny,
+                      feelsColor: showFeels ? theme.sub : null,
+                      gridColor: theme.border.withValues(alpha: 0.25),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            // saat ikonları yerine basit text şeridi
+
+            // Time labels
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -177,8 +175,9 @@ class _TemperatureCard extends StatelessWidget {
                 Text('24', style: TextStyle(color: theme.sub, fontSize: 10)),
               ],
             ),
-            const SizedBox(height: 8),
-            // segmente buton
+            const SizedBox(height: 10),
+
+            // Mode segmented control
             Container(
               decoration: BoxDecoration(
                 color: theme.cardAlt,
@@ -188,26 +187,34 @@ class _TemperatureCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _SegmentPill(
-                      label: 'Actual',
-                      active: true,
-                      theme: theme,
+                    child: GestureDetector(
+                      onTap: () => onModeChanged(TempMode.actualOnly),
+                      child: _SegmentPill(
+                        label: 'Actual',
+                        active: mode == TempMode.actualOnly,
+                        theme: theme,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: _SegmentPill(
-                      label: 'Feels Like',
-                      active: mode == _TempCardMode.actualVsFeels,
-                      theme: theme,
+                    child: GestureDetector(
+                      onTap: () => onModeChanged(TempMode.actualVsFeels),
+                      child: _SegmentPill(
+                        label: 'Feels Like',
+                        active: mode == TempMode.actualVsFeels,
+                        theme: theme,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
+
+            // Description
             Text(
-              mode == _TempCardMode.actualVsFeels
+              mode == TempMode.actualVsFeels
                   ? 'Perceived temperature with comparison to actual values.'
                   : 'The actual temperature over the day.',
               style: TextStyle(
@@ -273,15 +280,32 @@ class _TempChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final padding = 12.0;
+    if (actual.isEmpty) return;
+
+    const verticalPadding = 8.0;
     final rect = Rect.fromLTWH(
-      padding,
-      padding,
-      size.width - 2 * padding,
-      size.height - 2 * padding,
+      0,
+      verticalPadding,
+      size.width,
+      size.height - 2 * verticalPadding,
     );
 
-    // grid
+    // --- Compute dynamic min/max across all series so the graph
+    //     stretches vertically and doesn’t look “flat/weird”. ---
+    double minVal = actual.reduce(min);
+    double maxVal = actual.reduce(max);
+
+    if (feelsLike != null && feelsLike!.isNotEmpty) {
+      for (final v in feelsLike!) {
+        minVal = min(minVal, v);
+        maxVal = max(maxVal, v);
+      }
+    }
+
+    final span = (maxVal - minVal).abs() < 1e-6 ? 1.0 : (maxVal - minVal);
+    double norm(double v) => (v - minVal) / span;
+
+    // Grid lines
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
@@ -295,60 +319,46 @@ class _TempChartPainter extends CustomPainter {
       );
     }
 
-    // helper
-    Path _buildPath(List<double> values) {
+    Path buildPath(List<double> values) {
       final path = Path();
       final stepX = rect.width / (values.length - 1);
 
       Offset p(int i) {
         final x = rect.left + i * stepX;
-        final y = rect.bottom - values[i] * rect.height;
+        final t = norm(values[i]); // 0..1
+        final y = rect.bottom - t * rect.height;
         return Offset(x, y);
       }
 
       path.moveTo(p(0).dx, p(0).dy);
       for (int i = 1; i < values.length; i++) {
-        final p0 = p(i - 1);
-        final p1 = p(i);
-        final mid = Offset((p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
-        path.quadraticBezierTo(p0.dx, p0.dy, mid.dx, mid.dy);
+        final pt = p(i);
+        path.lineTo(pt.dx, pt.dy);
       }
-      path.lineTo(p(values.length - 1).dx, p(values.length - 1).dy);
       return path;
     }
 
-    // feels like (dashed)
-    if (feelsLike != null && feelsColor != null) {
-      final path = _buildPath(feelsLike!);
-      final paint = Paint()
+    // Feels-like line (if enabled)
+    if (feelsLike != null &&
+        feelsColor != null &&
+        feelsLike!.length == actual.length) {
+      final pathFeels = buildPath(feelsLike!);
+      final paintFeels = Paint()
         ..color = feelsColor!
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8;
-
-      const dashWidth = 6.0;
-      const dashSpace = 4.0;
-      double distance = 0.0;
-
-      final metrics = path.computeMetrics();
-      for (final metric in metrics) {
-        while (distance < metric.length) {
-          final len = (distance + dashWidth).clamp(0.0, metric.length);
-          final extract = metric.extractPath(distance, len);
-          canvas.drawPath(extract, paint);
-          distance += dashWidth + dashSpace;
-        }
-      }
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(pathFeels, paintFeels);
     }
 
-    // actual line
-    final actualPath = _buildPath(actual);
-    final actualPaint = Paint()
+    // Actual temperature line
+    final pathActual = buildPath(actual);
+    final paintActual = Paint()
       ..color = actualColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(actualPath, actualPaint);
+    canvas.drawPath(pathActual, paintActual);
   }
 
   @override
