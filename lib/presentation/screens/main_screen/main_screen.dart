@@ -4,6 +4,8 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 import '../settings_screen/settings_screen.dart';
+import '../averages_screen/averages_screen.dart';
+import '../windmap_screen/windmap_screen.dart';
 import '../../../router/app_router.dart' show ThemePref;
 
 class MainScreen extends StatelessWidget {
@@ -119,6 +121,8 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                         const SizedBox(height: 10),
                         _FiveDayCard(theme: theme),
                         const SizedBox(height: 10),
+                        _AverageDataCard(theme: theme),
+                        const SizedBox(height: 10),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -167,8 +171,11 @@ class _MainScreenBodyState extends State<MainScreenBody> {
 }
 
 class _UmbrellaIndexLine extends StatelessWidget {
-  const _UmbrellaIndexLine(
-      {required this.theme, required this.index, required this.t});
+  const _UmbrellaIndexLine({
+    required this.theme,
+    required this.index,
+    required this.t,
+  });
   final AppTheme theme;
   final double index;
   final double t;
@@ -213,7 +220,7 @@ class _UmbrellaIndexLine extends StatelessWidget {
               ignoring: t > 0.98,
               child: Row(
                 children: [
-                  Icon(Icons.umbrella_outlined, color: kIndicatorColor),
+                  const Icon(Icons.umbrella_outlined, color: kIndicatorColor),
                   const SizedBox(width: 8),
                   Text(
                     "Umbrella Index",
@@ -607,6 +614,65 @@ class _DayRow extends StatelessWidget {
   }
 }
 
+class _AverageDataCard extends StatelessWidget {
+  const _AverageDataCard({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AveragesScreen(appTheme: theme),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: theme.border),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel(
+                    theme: theme,
+                    icon: Icons.thermostat,
+                    title: "TODAY VS AVERAGE",
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "21°",
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Seasonal average: 15°",
+                    style: TextStyle(color: theme.sub, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.chevron_right, color: theme.sub),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.theme,
@@ -870,7 +936,10 @@ class _CompassPainter extends CustomPainter {
       ..color = theme.sub
       ..strokeWidth = 2;
     canvas.drawLine(
-        Offset(c.dx, c.dy - r), Offset(c.dx, c.dy - r + 8), tick);
+      Offset(c.dx, c.dy - r),
+      Offset(c.dx, c.dy - r + 8),
+      tick,
+    );
 
     final double angle = -45 * math.pi / 180;
     final double ux = math.cos(angle);
@@ -938,7 +1007,10 @@ class _PrecipTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel(
-              theme: theme, icon: Icons.invert_colors, title: "PRECIPITATION"),
+            theme: theme,
+            icon: Icons.invert_colors,
+            title: "PRECIPITATION",
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -970,33 +1042,46 @@ class _WindMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(
-              theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
-          const SizedBox(height: 8),
-          Container(
-            height: 140,
-            decoration: BoxDecoration(
-              color: theme.cardAlt,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.border),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              "Map Placeholder",
-              style: TextStyle(color: theme.sub),
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WindMapScreen(appTheme: theme),
           ),
-        ],
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: theme.border),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionLabel(
+              theme: theme,
+              icon: Icons.map_rounded,
+              title: "WIND MAP",
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 140,
+              decoration: BoxDecoration(
+                color: theme.cardAlt,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.border),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                "Tap to open wind map",
+                style: TextStyle(color: theme.sub),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1089,8 +1174,7 @@ class _RoundAction extends StatelessWidget {
 }
 
 class _PagerDots extends StatelessWidget {
-  const _PagerDots(
-      {required this.theme, required this.count, required this.active});
+  const _PagerDots({required this.theme, required this.count, required this.active});
   final AppTheme theme;
   final int count;
   final int active;
@@ -1163,7 +1247,10 @@ class _NoGlowScroll extends ScrollBehavior {
 
   @override
   Widget buildOverscrollIndicator(
-      BuildContext context, Widget child, ScrollableDetails details) {
+      BuildContext context,
+      Widget child,
+      ScrollableDetails details,
+      ) {
     return child;
   }
 }
