@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "19775881168",
+    "project_id": "umbrella-8735d",
+    "storage_bucket": "umbrella-8735d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:19775881168:android:5b7dea330efbbed29803d5",
+        "android_client_info": {
+          "package_name": "com.example.umbrella"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAty6tCj3O0Ty2FLcEgsMeBp6YNdvLvOtc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
