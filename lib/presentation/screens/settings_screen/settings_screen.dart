@@ -4,6 +4,12 @@ import '../../../router/app_router.dart' show ThemePref;
 import '../feedback_screen/feedback_screen.dart';
 import '../notification_screen/notification_screen.dart';
 
+import 'package:provider/provider.dart';
+
+
+import 'package:umbrella/providers/auth_state.dart';
+
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
@@ -217,6 +223,29 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+          _Section(
+            title: "Account",
+            color: colors,
+            children: [
+              ListTile(
+                leading: Icon(Icons.logout, color: Colors.redAccent),
+                title: Text(
+                  "Sign out",
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () async {
+                  await context.read<AuthState>().logout();
+                },
+
+
+              ),
+            ],
+          ),
+
+
         ],
       ),
     );
