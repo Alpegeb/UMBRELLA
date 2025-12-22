@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
+import 'package:umbrella/providers/items_state.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({
@@ -29,8 +31,45 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
   AppTheme get theme => widget.appTheme;
 
+  String _buildTitle() {
+    final msg = feedbackCtrl.text.trim();
+    final email = emailCtrl.text.trim();
+    final tagStr = selected.isEmpty ? '' : ' | tags: ${selected.join(", ")}';
+    final emailStr = email.isEmpty ? '' : ' | email: $email';
+    return '$msg$emailStr$tagStr';
+  }
+
+  Future<void> _submit() async {
+    final msg = feedbackCtrl.text.trim();
+    if (msg.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Feedback can't be empty")),
+      );
+      return;
+    }
+
+    await context.read<ItemsState>().add(_buildTitle());
+
+    feedbackCtrl.clear();
+    emailCtrl.clear();
+    setState(() => selected.clear());
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Feedback saved to Firestore ✅")),
+    );
+  }
+
+  @override
+  void dispose() {
+    feedbackCtrl.dispose();
+    emailCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final st = context.watch<ItemsState>();
+
     return Scaffold(
       backgroundColor: theme.bg,
       appBar: AppBar(
@@ -52,6 +91,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // CREATE
           _Card(
             theme: theme,
             child: TextField(
@@ -66,6 +106,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             ),
           ),
           const SizedBox(height: 16),
+
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -93,7 +134,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               );
             }).toList(),
           ),
+
           const SizedBox(height: 16),
+
           _Card(
             theme: theme,
             child: TextField(
@@ -107,7 +150,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 16),
+
           SizedBox(
             height: 52,
             child: ElevatedButton(
@@ -117,9 +162,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              onPressed: () {},
+              onPressed: st.loading ? null : _submit,
               child: Text(
-                'Submit',
+                st.loading ? 'Submitting...' : 'Submit',
                 style: TextStyle(
                   color: theme.text,
                   fontWeight: FontWeight.w600,
@@ -127,6 +172,55 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               ),
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // READ (realtime) + DELETE
+          Text(
+            "Your previous feedback (realtime)",
+            style: TextStyle(
+              color: theme.text,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          if (st.error != null)
+            Text(st.error!, style: TextStyle(color: theme.sub)),
+
+          if (!st.loading && st.items.isEmpty)
+            Text(
+              "No feedback yet.",
+              style: TextStyle(color: theme.sub),
+            ),
+
+          for (final item in st.items.take(10)) ...[
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.border),
+              ),
+              child: ListTile(
+                title: Text(
+                  (item['title'] ?? '').toString(),
+                  style: TextStyle(color: theme.text, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  "id: ${(item['id'] ?? '').toString()}",
+                  style: TextStyle(color: theme.sub),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  onPressed: () async {
+                    final id = (item['id'] ?? '').toString();
+                    await context.read<ItemsState>().remove(id);
+                  },
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
