@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:umbrella/providers/data_provider.dart';
 import 'router/app_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
