@@ -28,9 +28,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () async {
+                final navigator = Navigator.of(context);
+
                 await auth.register(emailCtrl.text, passCtrl.text);
-                Navigator.pop(context);
+
+                navigator.pop();
               },
+
+
               child: const Text('Create account'),
             ),
           ],

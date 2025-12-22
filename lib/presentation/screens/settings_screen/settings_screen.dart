@@ -3,10 +3,10 @@ import '../../../core/app_theme.dart';
 import '../../../router/app_router.dart' show ThemePref;
 import '../feedback_screen/feedback_screen.dart';
 import '../notification_screen/notification_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:provider/provider.dart';
 import '../auth/login_screen.dart';
-import '../auth/auth_gate.dart';
+
 import 'package:umbrella/providers/auth_state.dart';
 
 
@@ -236,14 +236,17 @@ class SettingsPage extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                  onTap: () async {
-                    await context.read<AuthState>().logout();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => LoginScreen(),
-                      ),
-                    );
-                  },
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+
+                  await context.read<AuthState>().logout();
+
+                  navigator.pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (_) => false,
+                  );
+                },
+
 
               ),
             ],
