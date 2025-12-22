@@ -19,7 +19,7 @@
 | Nisa Kan     | 31999 | Presentation & Communication Lead |
 
 
-## Step 3 Deliverables
+Deliverables
 - Firebase Authentication: Sign up / Login / Logout + auth-gated screens
 - Cloud Firestore: CRUD + realtime updates (Stream) under `users/{uid}/items`
 - State Management: Provider (AuthState + ItemsState + ThemeState)
