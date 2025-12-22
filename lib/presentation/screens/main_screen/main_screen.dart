@@ -1173,6 +1173,15 @@ class _BottomActions extends StatelessWidget {
         ),
         const Spacer(),
         _PagerDots(theme: theme, count: 5, active: 1),
+        const SizedBox(width: 10),
+        _RoundAction(
+          theme: theme,
+          icon: Icons.notifications_none_rounded,
+          tooltip: "Reminders",
+          onTap: () {
+            Navigator.pushNamed(context, '/reminders');
+          },
+        ),
         const Spacer(),
         _RoundAction(
           theme: theme,
