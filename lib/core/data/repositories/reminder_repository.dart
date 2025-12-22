@@ -30,7 +30,7 @@ class ReminderRepository {
     await docRef.set({
       'id': docRef.id,
       'createdBy': uid,
-      'createdAt': Timestamp.now(), // stable for orderBy
+      'createdAt': Timestamp.now(),
       'title': title,
       'note': note,
       'scheduledAt': Timestamp.fromDate(scheduledAt),
