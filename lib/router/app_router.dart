@@ -4,22 +4,14 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../providers/auth_state.dart';
 import '../providers/items_state.dart';
+import '../providers/theme_state.dart';
 import '../presentation/screens/auth/auth_gate.dart';
 
-enum ThemePref { light, system, dark }
-
-class UmbrellaApp extends StatefulWidget {
+class UmbrellaApp extends StatelessWidget {
   const UmbrellaApp({super.key});
 
-  @override
-  State<UmbrellaApp> createState() => _UmbrellaAppState();
-}
-
-class _UmbrellaAppState extends State<UmbrellaApp> {
-  ThemePref _themePref = ThemePref.system;
-
-  AppTheme _paletteFor(BuildContext context) {
-    switch (_themePref) {
+  AppTheme _paletteFor(BuildContext context, ThemePref pref) {
+    switch (pref) {
       case ThemePref.light:
         return AppTheme.light;
       case ThemePref.dark:
@@ -32,30 +24,38 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
 
   @override
   Widget build(BuildContext context) {
-    final appTheme = _paletteFor(context);
-
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthState()),
-
         ChangeNotifierProxyProvider<AuthState, ItemsState>(
           create: (_) => ItemsState(),
           update: (_, auth, items) {
-            final st = items ?? ItemsState(); // <-- null-safe
+            final st = items ?? ItemsState();
             st.bindUser(auth.user);
             return st;
           },
         ),
-      ],
-      child: MaterialApp(
-        title: 'Umbrella',
-        debugShowCheckedModeBanner: false,
-        theme: appTheme.materialTheme,
-        home: AuthGate(
-          appTheme: appTheme,
-          themePref: _themePref,
-          onThemePrefChanged: (pref) => setState(() => _themePref = pref),
+        ChangeNotifierProvider(
+          create: (_) => ThemeState()..load(),
         ),
+      ],
+      child: Consumer<ThemeState>(
+        builder: (context, themeState, _) {
+          // İlk load bitmeden UI'ı basitçe göster
+          final pref = themeState.pref;
+          final appTheme = _paletteFor(context, pref);
+
+          return MaterialApp(
+            title: 'Umbrella',
+            debugShowCheckedModeBanner: false,
+            theme: appTheme.materialTheme,
+            home: AuthGate(
+              appTheme: appTheme,
+              themePref: pref,
+              onThemePrefChanged: (p) => context.read<ThemeState>().setPref(p),
+            ),
+          );
+        },
       ),
     );
   }
