@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
-import '../feedback_screen/feedback_screen.dart';
-import '../notification_screen/notification_screen.dart';
-
 import 'package:provider/provider.dart';
 
+import '../../../core/app_theme.dart';
+import '../../../router/app_router.dart' show ThemePref;
 
 import 'package:umbrella/providers/auth_state.dart';
+import 'package:umbrella/providers/items_state.dart';
 
+import '../feedback_screen/feedback_screen.dart';
+import '../notification_screen/notification_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -44,9 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _handleThemeChange(ThemePref pref) {
-    setState(() {
-      _selectedPref = pref;
-    });
+    setState(() => _selectedPref = pref);
     widget.onThemePrefChanged(pref);
   }
 
@@ -109,6 +107,7 @@ class SettingsPage extends StatelessWidget {
       child: ListView(
         children: [
           const SizedBox(height: 8),
+
           _Section(
             title: "Appearance",
             color: colors,
@@ -130,7 +129,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "Units",
             color: colors,
@@ -157,7 +158,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "Notifications",
             color: colors,
@@ -180,7 +183,22 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
+          // ✅ Firestore kısmı: kanıt + CRUD + realtime
+          _Section(
+            title: "Firestore (Step 3)",
+            color: colors,
+            children: [
+              _FirestoreStatusTile(colors: colors),
+              _FirestoreAddTile(colors: colors),
+              _FirestoreList(colors: colors),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
           _Section(
             title: "About",
             color: colors,
@@ -200,7 +218,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "Support",
             color: colors,
@@ -223,13 +243,16 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 12),
+
           _Section(
             title: "Account",
             color: colors,
             children: [
               ListTile(
-                leading: Icon(Icons.logout, color: Colors.redAccent),
-                title: Text(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text(
                   "Sign out",
                   style: TextStyle(
                     color: Colors.redAccent,
@@ -239,15 +262,138 @@ class SettingsPage extends StatelessWidget {
                 onTap: () async {
                   await context.read<AuthState>().logout();
                 },
-
-
               ),
             ],
           ),
-
-
         ],
       ),
+    );
+  }
+}
+
+/// ✅ Firestore: Loading / Error / Count göster
+class _FirestoreStatusTile extends StatelessWidget {
+  const _FirestoreStatusTile({required this.colors});
+  final AppTheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ItemsState>(
+      builder: (_, st, __) {
+        String subtitle;
+        if (st.loading) {
+          subtitle = "Loading items…";
+        } else if (st.error != null) {
+          subtitle = "Error: ${st.error}";
+        } else {
+          subtitle = "Realtime items: ${st.items.length}";
+        }
+
+        return ListTile(
+          leading: Icon(Icons.cloud_done_outlined, color: colors.sub),
+          title: Text(
+            "Firestore Connection",
+            style: TextStyle(color: colors.text, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(subtitle, style: TextStyle(color: colors.sub)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        );
+      },
+    );
+  }
+}
+
+/// ✅ Firestore: Add (Create)
+class _FirestoreAddTile extends StatelessWidget {
+  const _FirestoreAddTile({required this.colors});
+  final AppTheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(Icons.add_circle_outline, color: colors.sub),
+      title: Text(
+        "Add test item",
+        style: TextStyle(color: colors.text, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        "Creates a document under users/{uid}/items",
+        style: TextStyle(color: colors.sub),
+      ),
+      trailing: Icon(Icons.chevron_right, color: colors.sub),
+      onTap: () async {
+        await context.read<ItemsState>().add("Hello from Umbrella");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Item added to Firestore")),
+        );
+      },
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    );
+  }
+}
+
+/// ✅ Firestore: List + Delete (Read + Delete)
+class _FirestoreList extends StatelessWidget {
+  const _FirestoreList({required this.colors});
+  final AppTheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ItemsState>(
+      builder: (_, st, __) {
+        if (st.loading) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (st.error != null) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(st.error!, style: TextStyle(color: colors.sub)),
+          );
+        }
+        if (st.items.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              "No items yet. Tap 'Add test item'.",
+              style: TextStyle(color: colors.sub),
+            ),
+          );
+        }
+
+        // küçük list: en fazla 5 göster
+        final show = st.items.take(5).toList();
+
+        return Column(
+          children: [
+            for (final item in show) ...[
+              Divider(height: 0, thickness: 1, color: colors.border),
+              ListTile(
+                leading: Icon(Icons.notes_outlined, color: colors.sub),
+                title: Text(
+                  (item['title'] ?? '').toString(),
+                  style: TextStyle(color: colors.text, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  "id: ${(item['id'] ?? '').toString()}",
+                  style: TextStyle(color: colors.sub),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  onPressed: () async {
+                    final id = (item['id'] ?? '').toString();
+                    await context.read<ItemsState>().remove(id);
+                  },
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -405,7 +551,7 @@ class _SwitchTile extends StatelessWidget {
         onChanged: onChanged,
         thumbColor: WidgetStatePropertyAll(color.cardAlt),
         trackColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
+          (states) => states.contains(WidgetState.selected)
               ? color.accent.withValues(alpha: 0.4)
               : color.border,
         ),
