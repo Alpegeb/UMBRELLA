@@ -44,23 +44,4 @@ class Reminder {
       isDone: (data['isDone'] as bool?) ?? false,
     );
   }
-
-  /// Only allows changing mutable fields.
-  /// id/createdBy/createdAt are always preserved.
-  Reminder copyWith({
-    String? title,
-    String? note,
-    Timestamp? scheduledAt,
-    bool? isDone,
-  }) {
-    return Reminder(
-      id: id,
-      createdBy: createdBy,
-      createdAt: createdAt,
-      title: title ?? this.title,
-      note: note ?? this.note,
-      scheduledAt: scheduledAt ?? this.scheduledAt,
-      isDone: isDone ?? this.isDone,
-    );
-  }
 }
