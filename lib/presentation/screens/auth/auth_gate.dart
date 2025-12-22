@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../presentation/screens/main_screen/main_screen.dart';
-import '../../../core/app_theme.dart';
 import '../../../providers/auth_state.dart';
+import '../../screens/main_screen/main_screen.dart';
+import '../../../core/app_theme.dart';
+import '../../../router/app_router.dart' show ThemePref;
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -14,8 +15,8 @@ class AuthGate extends StatelessWidget {
   });
 
   final AppTheme appTheme;
-  final dynamic themePref;
-  final ValueChanged<dynamic> onThemePrefChanged;
+  final ThemePref themePref;
+  final ValueChanged<ThemePref> onThemePrefChanged;
 
   @override
   Widget build(BuildContext context) {

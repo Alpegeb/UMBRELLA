@@ -5,7 +5,7 @@ import '../feedback_screen/feedback_screen.dart';
 import '../notification_screen/notification_screen.dart';
 
 import 'package:provider/provider.dart';
-import '../auth/login_screen.dart';
+
 
 import 'package:umbrella/providers/auth_state.dart';
 
@@ -237,14 +237,7 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ),
                 onTap: () async {
-                  final navigator = Navigator.of(context);
-
                   await context.read<AuthState>().logout();
-
-                  navigator.pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        (_) => false,
-                  );
                 },
 
 
