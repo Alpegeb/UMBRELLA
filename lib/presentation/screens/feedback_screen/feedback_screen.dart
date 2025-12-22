@@ -50,12 +50,23 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
     await context.read<ItemsState>().add(_buildTitle());
 
+    if (!mounted) return;
+
     feedbackCtrl.clear();
     emailCtrl.clear();
     setState(() => selected.clear());
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Feedback saved to Firestore ✅")),
+    );
+  }
+
+  Future<void> _deleteItem(String id) async {
+    await context.read<ItemsState>().remove(id);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Deleted ✅")),
     );
   }
 
@@ -91,7 +102,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // CREATE
           _Card(
             theme: theme,
             child: TextField(
@@ -175,7 +185,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
           const SizedBox(height: 24),
 
-          // READ (realtime) + DELETE
           Text(
             "Your previous feedback (realtime)",
             style: TextStyle(
@@ -205,7 +214,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               child: ListTile(
                 title: Text(
                   (item['title'] ?? '').toString(),
-                  style: TextStyle(color: theme.text, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 subtitle: Text(
                   "id: ${(item['id'] ?? '').toString()}",
@@ -215,7 +227,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                   onPressed: () async {
                     final id = (item['id'] ?? '').toString();
-                    await context.read<ItemsState>().remove(id);
+                    await _deleteItem(id);
                   },
                 ),
               ),
