@@ -3,7 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
+import 'package:umbrella/providers/theme_state.dart' show ThemePref;
 import '../settings_screen/settings_screen.dart';
 import '../location_screen/location_screen.dart';
 import '../insights_screen/insights_screen.dart';
