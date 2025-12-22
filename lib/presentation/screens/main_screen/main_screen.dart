@@ -1173,16 +1173,17 @@ class _BottomActions extends StatelessWidget {
         ),
         const Spacer(),
         _PagerDots(theme: theme, count: 5, active: 1),
-        const SizedBox(width: 10),
+        const Spacer(),
+
+        // ✅ NEW: Reminders shortcut (uses named route)
         _RoundAction(
           theme: theme,
           icon: Icons.notifications_none_rounded,
           tooltip: "Reminders",
-          onTap: () {
-            Navigator.pushNamed(context, '/reminders');
-          },
+          onTap: () => Navigator.pushNamed(context, '/reminders'),
         ),
-        const Spacer(),
+        const SizedBox(width: 10),
+
         _RoundAction(
           theme: theme,
           icon: Icons.settings,
@@ -1223,10 +1224,10 @@ class _RoundAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: Ink(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
@@ -1241,7 +1242,11 @@ class _RoundAction extends StatelessWidget {
               ),
             ],
           ),
-          child: Icon(icon, color: theme.text, size: 22),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: Icon(icon, color: theme.text, size: 22),
+          ),
         ),
       ),
     );
