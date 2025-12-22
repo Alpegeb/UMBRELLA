@@ -238,7 +238,9 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () async {
                   await context.read<AuthState>().logout();
-                },
+
+
+                  },
 
 
               ),
