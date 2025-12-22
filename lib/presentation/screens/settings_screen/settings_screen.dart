@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
+import '../../../providers/theme_state.dart' show ThemePref;
 import '../feedback_screen/feedback_screen.dart';
 import '../notification_screen/notification_screen.dart';
 
