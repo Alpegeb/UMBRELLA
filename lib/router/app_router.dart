@@ -27,6 +27,7 @@ class UmbrellaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthState()),
+
         ChangeNotifierProxyProvider<AuthState, ItemsState>(
           create: (_) => ItemsState(),
           update: (_, auth, items) {
@@ -35,13 +36,13 @@ class UmbrellaApp extends StatelessWidget {
             return st;
           },
         ),
+
         ChangeNotifierProvider(
           create: (_) => ThemeState()..load(),
         ),
       ],
       child: Consumer<ThemeState>(
         builder: (context, themeState, _) {
-          // İlk load bitmeden UI'ı basitçe göster
           final pref = themeState.pref;
           final appTheme = _paletteFor(context, pref);
 
@@ -52,7 +53,8 @@ class UmbrellaApp extends StatelessWidget {
             home: AuthGate(
               appTheme: appTheme,
               themePref: pref,
-              onThemePrefChanged: (p) => context.read<ThemeState>().setPref(p),
+              onThemePrefChanged: (p) =>
+                  context.read<ThemeState>().setPref(p),
             ),
           );
         },
