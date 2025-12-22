@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../core/app_theme.dart';
-
 import 'package:provider/provider.dart';
-import '../providers/auth_state.dart';
-import '../presentation/screens/auth/auth_gate.dart';
 
+import '../core/app_theme.dart';
+import '../providers/auth_state.dart';
+import '../providers/items_state.dart'; // <-- EKLE
+import '../presentation/screens/auth/auth_gate.dart';
 
 enum ThemePref { light, system, dark }
 
@@ -34,8 +34,19 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
   Widget build(BuildContext context) {
     final appTheme = _paletteFor(context);
 
-    return ChangeNotifierProvider(
-      create: (_) => AuthState(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthState()),
+
+        ChangeNotifierProxyProvider<AuthState, ItemsState>(
+          create: (_) => ItemsState(),
+          update: (_, auth, items) {
+            items ??= ItemsState();
+            items.bindUser(auth.user);
+            return items;
+          },
+        ),
+      ],
       child: MaterialApp(
         title: 'Umbrella',
         debugShowCheckedModeBanner: false,
@@ -47,7 +58,5 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
         ),
       ),
     );
-
-
   }
 }
