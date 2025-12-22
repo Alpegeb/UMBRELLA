@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../providers/auth_state.dart';
 import '../../screens/main_screen/main_screen.dart';
 import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
+import 'package:umbrella/providers/theme_state.dart' show ThemePref;
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
