@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../core/app_theme.dart';
 import '../presentation/screens/main_screen/main_screen.dart';
+
+// ✅ Step 3 (Firestore data layer)
+import '../core/data/repositories/reminder_repository.dart';
+import '../presentation/screens/reminders/reminders_screen.dart';
+
 enum ThemePref { light, system, dark }
 
 class UmbrellaApp extends StatefulWidget {
@@ -12,6 +18,13 @@ class UmbrellaApp extends StatefulWidget {
 
 class _UmbrellaAppState extends State<UmbrellaApp> {
   ThemePref _themePref = ThemePref.system;
+
+  // ✅ Provider yoksa: repo burada tek instance olsun
+  final ReminderRepository _reminderRepo = ReminderRepository();
+
+  // ✅ Şimdilik demo uid (auth yoksa)
+  // Auth gelince burayı FirebaseAuth.instance.currentUser!.uid yaparsınız.
+  static const String _demoUid = 'demo-user';
 
   AppTheme _paletteFor(BuildContext context) {
     switch (_themePref) {
@@ -33,11 +46,21 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
       title: 'Umbrella',
       debugShowCheckedModeBanner: false,
       theme: appTheme.materialTheme,
-      home: MainScreen(
-        appTheme: appTheme,
-        themePref: _themePref,
-        onThemePrefChanged: (pref) => setState(() => _themePref = pref),
-      ),
+
+      // ✅ Routing (provider yoksa bu yeter)
+      routes: {
+        '/': (_) => MainScreen(
+              appTheme: appTheme,
+              themePref: _themePref,
+              onThemePrefChanged: (pref) => setState(() => _themePref = pref),
+            ),
+        '/reminders': (_) => RemindersScreen(
+              uid: _demoUid,
+              repo: _reminderRepo,
+            ),
+      },
+
+      initialRoute: '/',
     );
   }
 }
