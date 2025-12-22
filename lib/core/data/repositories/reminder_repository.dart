@@ -10,6 +10,7 @@ class ReminderRepository {
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('reminders');
 
+  // READ (Realtime)
   Stream<List<Reminder>> streamReminders(String uid) {
     return _col
         .where('createdBy', isEqualTo: uid)
@@ -18,6 +19,7 @@ class ReminderRepository {
         .map((snap) => snap.docs.map(Reminder.fromDoc).toList());
   }
 
+  // CREATE
   Future<void> addReminder({
     required String uid,
     required String title,
@@ -28,7 +30,7 @@ class ReminderRepository {
     await docRef.set({
       'id': docRef.id,
       'createdBy': uid,
-      'createdAt': Timestamp.now(),
+      'createdAt': Timestamp.now(), // stable for orderBy
       'title': title,
       'note': note,
       'scheduledAt': Timestamp.fromDate(scheduledAt),
@@ -36,14 +38,22 @@ class ReminderRepository {
     });
   }
 
+  // UPDATE (only mutable fields)
   Future<void> updateReminder(Reminder updated) async {
-    await _col.doc(updated.id).update(updated.toMap());
+    await _col.doc(updated.id).update({
+      'title': updated.title,
+      'note': updated.note,
+      'scheduledAt': updated.scheduledAt,
+      'isDone': updated.isDone,
+    });
   }
 
+  // DELETE
   Future<void> deleteReminder(String id) async {
     await _col.doc(id).delete();
   }
 
+  // Helper: toggle done
   Future<void> setDone(String id, bool isDone) async {
     await _col.doc(id).update({'isDone': isDone});
   }
