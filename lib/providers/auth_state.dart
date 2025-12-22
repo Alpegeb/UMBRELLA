@@ -23,33 +23,61 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async {
+  Future<bool> login(String email, String password) async {
     _setError(null);
+
+    final e = email.trim();
+    final p = password;
+
+    if (e.isEmpty) {
+      _setError('Please enter an email.');
+      return false;
+    }
+    if (p.isEmpty) {
+      _setError('Please enter a password.');
+      return false;
+    }
+
     _setLoading(true);
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-    } on FirebaseAuthException catch (e) {
-      _setError(_friendlyAuthError(e));
-      rethrow;
+      await _auth.signInWithEmailAndPassword(email: e, password: p);
+      return true;
+    } on FirebaseAuthException catch (ex) {
+      _setError(_friendlyAuthError(ex));
+      return false;
+    } catch (_) {
+      _setError('Authentication error. Please try again.');
+      return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<void> register(String email, String password) async {
+  Future<bool> register(String email, String password) async {
     _setError(null);
+
+    final e = email.trim();
+    final p = password;
+
+    if (e.isEmpty) {
+      _setError('Please enter an email.');
+      return false;
+    }
+    if (p.isEmpty) {
+      _setError('Please enter a password.');
+      return false;
+    }
+
     _setLoading(true);
     try {
-      await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-    } on FirebaseAuthException catch (e) {
-      _setError(_friendlyAuthError(e));
-      rethrow;
+      await _auth.createUserWithEmailAndPassword(email: e, password: p);
+      return true;
+    } on FirebaseAuthException catch (ex) {
+      _setError(_friendlyAuthError(ex));
+      return false;
+    } catch (_) {
+      _setError('Registration error. Please try again.');
+      return false;
     } finally {
       _setLoading(false);
     }
@@ -60,9 +88,8 @@ class AuthState extends ChangeNotifier {
     _setLoading(true);
     try {
       await _auth.signOut();
-    } on FirebaseAuthException catch (e) {
-      _setError(_friendlyAuthError(e));
-      rethrow;
+    } catch (_) {
+      _setError('Sign out failed. Please try again.');
     } finally {
       _setLoading(false);
     }
@@ -70,6 +97,8 @@ class AuthState extends ChangeNotifier {
 
   String _friendlyAuthError(FirebaseAuthException e) {
     switch (e.code) {
+      case 'missing-password':
+        return 'Please enter a password.';
       case 'invalid-email':
         return 'Invalid email address.';
       case 'user-disabled':
@@ -83,7 +112,7 @@ class AuthState extends ChangeNotifier {
       case 'weak-password':
         return 'Password is too weak (try 6+ characters).';
       case 'operation-not-allowed':
-        return 'Email/password sign-in is not enabled in Firebase.';
+        return 'Login method is currently unavailable.';
       case 'network-request-failed':
         return 'Network error. Check your internet connection.';
       default:

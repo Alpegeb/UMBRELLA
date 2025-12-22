@@ -25,10 +25,33 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
 
+    // Reliable dark/light detection even if ThemeData.brightness is wrong
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final isDark = bg.computeLuminance() < 0.5;
+
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subColor = isDark ? Colors.white70 : Colors.black54;
+    final borderColor = isDark ? Colors.white54 : Colors.black45;
+    final primary = Theme.of(context).colorScheme.primary;
+
+    InputDecoration deco(String label) => InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: subColor),
+      hintStyle: TextStyle(color: subColor),
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: borderColor),
+      ),
+      focusedBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: primary, width: 2),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Login'),
+        title: Text('Login', style: TextStyle(color: textColor)),
+        iconTheme: IconThemeData(color: textColor),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -36,14 +59,18 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             TextField(
               controller: emailCtrl,
-              decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
+              style: TextStyle(color: textColor),
+              cursorColor: primary,
+              decoration: deco('Email'),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: passCtrl,
-              decoration: const InputDecoration(labelText: 'Password'),
               obscureText: true,
+              style: TextStyle(color: textColor),
+              cursorColor: primary,
+              decoration: deco('Password'),
             ),
             const SizedBox(height: 16),
             if (auth.error != null)
@@ -66,7 +93,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       emailCtrl.text,
                       passCtrl.text,
                     );
-                  } catch (_) {}
+                  } catch (_) {
+
+                  }
                 },
                 child: auth.isLoading
                     ? const SizedBox(
@@ -83,12 +112,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   : () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const RegisterScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
                 );
               },
-              child: const Text('Create account'),
+              child: Text(
+                'Create account',
+                style: TextStyle(color: primary),
+              ),
             ),
           ],
         ),
