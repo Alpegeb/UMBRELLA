@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../presentation/screens/main_screen/main_screen.dart';
 import '../../../core/app_theme.dart';
-import '../../../providers/auth_provider.dart';
+import '../../../providers/auth_state.dart';
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -19,7 +19,7 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
+    final auth = context.watch<AuthState>();
 
     return StreamBuilder(
       stream: auth.authStateChanges,

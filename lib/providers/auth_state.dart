@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class AuthProvider extends ChangeNotifier {
+class AuthState extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   User? get user => _auth.currentUser;

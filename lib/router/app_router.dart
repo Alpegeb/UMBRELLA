@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../presentation/screens/main_screen/main_screen.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_state.dart';
 import '../presentation/screens/auth/auth_gate.dart';
 
 
@@ -35,7 +35,7 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
     final appTheme = _paletteFor(context);
 
     return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+      create: (_) => AuthState(),
       child: MaterialApp(
         title: 'Umbrella',
         debugShowCheckedModeBanner: false,
