@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/data_provider.dart';
+import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,9 +25,19 @@ class UmbrellaApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DataProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider()..loadTheme(),
+        ),
       ],
-      child: MaterialApp.router(
-        routerConfig: AppRouter.router,
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp.router(
+            theme: themeProvider.isDarkMode
+                ? ThemeData.dark()
+                : ThemeData.light(),
+            routerConfig: AppRouter.router,
+          );
+        },
       ),
     );
   }
