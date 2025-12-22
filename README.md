@@ -17,3 +17,14 @@
 | Yavuz Başkurt | 34543 | Documentation & Submission Lead |
 | Berkay Türeyen | 30763 | Integration & Repository Lead |
 | Nisa Kan     | 31999 | Presentation & Communication Lead |
+
+
+## Step 3 Deliverables
+- Firebase Authentication: Sign up / Login / Logout + auth-gated screens
+- Cloud Firestore: CRUD + realtime updates (Stream) under `users/{uid}/items`
+- State Management: Provider (AuthState + ItemsState + ThemeState)
+- SharedPreferences: Theme preference is persisted and restored on app start
+- Security Rules: Firestore rules included in `firestore.rules` and published on Firebase Console
+
+Demo video: <PUT_YOUR_LINK_HERE>
+
