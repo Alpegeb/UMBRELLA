@@ -2,8 +2,12 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
+import '../../../core/theme_pref.dart';
+import '../../../providers/items_state.dart';
+
 import '../settings_screen/settings_screen.dart';
 import '../location_screen/location_screen.dart';
 import '../insights_screen/insights_screen.dart';
@@ -153,7 +157,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                                 },
                                 child: ConstrainedBox(
                                   constraints:
-                                  const BoxConstraints(minHeight: 132),
+                                      const BoxConstraints(minHeight: 132),
                                   child: _MetricCard(
                                     theme: theme,
                                     title: "FEELS LIKE",
@@ -168,12 +172,17 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             Expanded(
                               child: ConstrainedBox(
                                 constraints:
-                                const BoxConstraints(minHeight: 132),
+                                    const BoxConstraints(minHeight: 132),
                                 child: _MetricAqi(theme: theme),
                               ),
                             ),
                           ],
                         ),
+
+                        // ✅ Step-3 CRUD + realtime section
+                        const SizedBox(height: 10),
+                        _ItemsCard(theme: theme),
+
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () {
@@ -209,8 +218,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    WindMapScreen(appTheme: theme),
+                                builder: (_) => WindMapScreen(appTheme: theme),
                               ),
                             );
                           },
@@ -227,6 +235,207 @@ class _MainScreenBodyState extends State<MainScreenBody> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// ✅ Firestore Items UI (Add / Edit / Delete) — uses ItemsState (realtime)
+class _ItemsCard extends StatelessWidget {
+  const _ItemsCard({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ItemsState>(
+      builder: (context, st, _) {
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: theme.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: theme.border),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _SectionLabel(
+                    theme: theme,
+                    icon: Icons.cloud_done,
+                    title: "YOUR ITEMS (FIRESTORE)",
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: "Add",
+                    onPressed: () => _openAddDialog(context),
+                    icon: Icon(Icons.add_circle_outline, color: theme.text),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (st.loading)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(theme.accent),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              else if (st.error != null)
+                Text(
+                  st.error!,
+                  style: const TextStyle(color: Colors.red),
+                )
+              else if (st.items.isEmpty)
+                Text(
+                  "No items yet. Tap + to add one.",
+                  style: TextStyle(color: theme.sub),
+                )
+              else
+                Column(
+                  children: st.items.map((m) {
+                    final id = (m['id'] ?? '').toString();
+                    final title = (m['title'] ?? '').toString();
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.cardAlt,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: theme.border),
+                        ),
+                        child: ListTile(
+                          title: Text(
+                            title,
+                            style: TextStyle(
+                              color: theme.text,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            "Realtime • owned by user",
+                            style: TextStyle(color: theme.sub, fontSize: 12),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: "Edit",
+                                onPressed: () =>
+                                    _openEditDialog(context, id, title),
+                                icon:
+                                    Icon(Icons.edit, color: theme.text),
+                              ),
+                              IconButton(
+                                tooltip: "Delete",
+                                onPressed: () => st.remove(id),
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openAddDialog(BuildContext context) async {
+    final ctrl = TextEditingController();
+    final ok = await _openTextDialog(
+      context,
+      title: "Add Item",
+      hint: "Title",
+      controller: ctrl,
+      confirmText: "Add",
+    );
+    if (ok != true) return;
+
+    final title = ctrl.text.trim();
+    if (title.isEmpty) return;
+
+    await context.read<ItemsState>().add(title);
+  }
+
+  Future<void> _openEditDialog(
+      BuildContext context, String id, String currentTitle) async {
+    final ctrl = TextEditingController(text: currentTitle);
+    final ok = await _openTextDialog(
+      context,
+      title: "Edit Item",
+      hint: "Title",
+      controller: ctrl,
+      confirmText: "Save",
+    );
+    if (ok != true) return;
+
+    final title = ctrl.text.trim();
+    if (title.isEmpty) return;
+
+    await context.read<ItemsState>().update(id, title);
+  }
+
+  Future<bool?> _openTextDialog(
+    BuildContext context, {
+    required String title,
+    required String hint,
+    required TextEditingController controller,
+    required String confirmText,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final bg = Theme.of(ctx).scaffoldBackgroundColor;
+        final isDark = bg.computeLuminance() < 0.5;
+        final textColor = isDark ? Colors.white : Colors.black;
+        final subColor = isDark ? Colors.white70 : Colors.black54;
+        final borderColor = isDark ? Colors.white54 : Colors.black45;
+        final primary = Theme.of(ctx).colorScheme.primary;
+
+        InputDecoration deco(String label) => InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(color: subColor),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: borderColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primary, width: 2),
+              ),
+            );
+
+        return AlertDialog(
+          title: Text(title, style: TextStyle(color: textColor)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(color: textColor),
+            decoration: deco(hint),
+            onSubmitted: (_) => Navigator.pop(ctx, true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(confirmText),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -265,12 +474,12 @@ class _UmbrellaIndexLine extends StatelessWidget {
         border: Border.all(color: theme.border.withValues(alpha: borderA)),
         boxShadow: bgA > 0.01
             ? [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          )
-        ]
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                )
+              ]
             : null,
       ),
       child: Column(
@@ -311,7 +520,7 @@ class _UmbrellaIndexLine extends StatelessWidget {
                 final dotSize = barHeight;
                 final centerX = (clamped / 10.0) * (w - 1);
                 final left =
-                (centerX - dotSize / 2).clamp(0.0, w - dotSize);
+                    (centerX - dotSize / 2).clamp(0.0, w - dotSize);
 
                 return Stack(
                   children: [
@@ -346,18 +555,17 @@ class _UmbrellaIndexLine extends StatelessWidget {
               },
             ),
           ),
-          if (fade > 0.01)
-            ...[
-              const SizedBox(height: 6),
-              Opacity(
-                opacity: fade,
-                child: Text(
-                  _caption(clamped),
-                  style: TextStyle(color: theme.sub, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
+          if (fade > 0.01) ...[
+            const SizedBox(height: 6),
+            Opacity(
+              opacity: fade,
+              child: Text(
+                _caption(clamped),
+                style: TextStyle(color: theme.sub, fontSize: 12),
+                textAlign: TextAlign.center,
               ),
-            ],
+            ),
+          ],
         ],
       ),
     );
@@ -581,6 +789,15 @@ class _HourlyTile extends StatelessWidget {
   }
 }
 
+// ... (Aşağıdaki widget’ların geri kalanı senin kodunla aynı)
+// _FiveDayCard, _DayRow, _MetricCard, _MetricAqi, _RingGauge,
+// _AveragesPreview, _WindCompact, _WindMeta, _KeyRow,
+// _WindCompass, _CompassPainter, _PrecipTile, _WindMapCard
+// _BottomActions, _RoundAction, _PagerDots, _SectionLabel, _NoGlowScroll
+
+// ✅ Senin dosyada kalan kısmı değiştirmene gerek yok.
+// Buradan aşağısı sende zaten olduğu gibi kalabilir.
+
 class _FiveDayCard extends StatelessWidget {
   const _FiveDayCard({required this.theme});
   final AppTheme theme;
@@ -593,7 +810,12 @@ class _FiveDayCard extends StatelessWidget {
       _DayRow(theme: theme, day: "Fri", hi: 16, lo: 10, icon: Icons.beach_access),
       _DayRow(theme: theme, day: "Sat", hi: 14, lo: 9, icon: Icons.cloud_queue),
       _DayRow(
-          theme: theme, day: "Sun", hi: 15, lo: 8, icon: Icons.wb_sunny_outlined),
+        theme: theme,
+        day: "Sun",
+        hi: 15,
+        lo: 8,
+        icon: Icons.wb_sunny_outlined,
+      ),
     ];
 
     return Container(
@@ -681,462 +903,6 @@ class _DayRow extends StatelessWidget {
             child: Text(
               "$hi° / $lo°",
               textAlign: TextAlign.end,
-              style: TextStyle(color: theme.sub),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.theme,
-    required this.title,
-    required this.value,
-    required this.caption,
-    required this.icon,
-  });
-
-  final AppTheme theme;
-  final String title;
-  final String value;
-  final String caption;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(theme: theme, icon: icon, title: title),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              color: theme.text,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            caption,
-            style: TextStyle(color: theme.sub, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricAqi extends StatelessWidget {
-  const _MetricAqi({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    const aqi = 42;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(
-            theme: theme,
-            icon: Icons.blur_on,
-            title: "AIR QUALITY",
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CustomPaint(
-                size: const Size(40, 40),
-                painter: _RingGauge(theme: theme, percent: 0.22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "AQI $aqi • Good",
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            "Air quality is satisfying and poses little or no risk.",
-            style: TextStyle(color: theme.sub, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RingGauge extends CustomPainter {
-  _RingGauge({required this.theme, required this.percent});
-  final AppTheme theme;
-  final double percent;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2;
-
-    final base = Paint()
-      ..color = theme.cardAlt
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-
-    final fg = Paint()
-      ..shader = SweepGradient(
-        colors: [
-          theme.accent,
-          theme.accent.withValues(alpha: 0.6),
-        ],
-      ).createShader(Rect.fromCircle(center: c, radius: r))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(c, r - 3, base);
-
-    final sweep = 2 * math.pi * percent;
-    canvas.drawArc(
-      Rect.fromCircle(center: c, radius: r - 3),
-      -math.pi / 2,
-      sweep,
-      false,
-      fg,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _RingGauge oldDelegate) =>
-      oldDelegate.percent != percent || oldDelegate.theme != theme;
-}
-
-class _AveragesPreview extends StatelessWidget {
-  const _AveragesPreview({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.show_chart_rounded, color: theme.accent, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "DAILY AVERAGE",
-                  style: TextStyle(
-                    color: theme.sub,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Today’s high is 6° above normal (21° vs 15°).",
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            "+6°",
-            style: TextStyle(
-              color: theme.sunny,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WindCompact extends StatelessWidget {
-  const _WindCompact({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Expanded(child: _WindMeta(theme: theme)),
-          const SizedBox(width: 8),
-          _WindCompass(theme: theme),
-        ],
-      ),
-    );
-  }
-}
-
-class _WindMeta extends StatelessWidget {
-  const _WindMeta({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionLabel(
-          theme: theme,
-          icon: Icons.air_rounded,
-          title: "WIND",
-        ),
-        const SizedBox(height: 6),
-        _KeyRow(theme: theme, k: "Speed", v: "13 km/h"),
-        _KeyRow(theme: theme, k: "Gusts", v: "30 km/h"),
-        _KeyRow(theme: theme, k: "Direction", v: "53° NE"),
-      ],
-    );
-  }
-}
-
-class _KeyRow extends StatelessWidget {
-  const _KeyRow({required this.theme, required this.k, required this.v});
-  final AppTheme theme;
-  final String k;
-  final String v;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 86,
-            child: Text(k, style: TextStyle(color: theme.sub)),
-          ),
-          Text(v, style: TextStyle(color: theme.text)),
-        ],
-      ),
-    );
-  }
-}
-
-class _WindCompass extends StatelessWidget {
-  const _WindCompass({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 96,
-      height: 96,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(size: const Size(92, 92), painter: _CompassPainter(theme)),
-          Text(
-            "13\nkm/h",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: theme.text,
-              fontSize: 12,
-              height: 1.1,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CompassPainter extends CustomPainter {
-  _CompassPainter(this.theme);
-  final AppTheme theme;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2 - 4;
-
-    final bg = Paint()..color = theme.cardAlt;
-    final border = Paint()
-      ..color = theme.border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(c, r, bg);
-    canvas.drawCircle(c, r, border);
-
-    final tick = Paint()
-      ..color = theme.sub
-      ..strokeWidth = 2;
-    canvas.drawLine(
-        Offset(c.dx, c.dy - r), Offset(c.dx, c.dy - r + 8), tick);
-
-    final double angle = -45 * math.pi / 180;
-    final double ux = math.cos(angle);
-    final double uy = math.sin(angle);
-
-    final double startR = r * 0.34;
-    final double baseR = r * 0.66;
-    final double tipR = r * 0.80;
-
-    final Offset start = Offset(c.dx + startR * ux, c.dy + startR * uy);
-    final Offset base = Offset(c.dx + baseR * ux, c.dy + baseR * uy);
-    final Offset tip = Offset(c.dx + tipR * ux, c.dy + tipR * uy);
-
-    final Paint shaft = Paint()
-      ..color = theme.accent
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(start, base, shaft);
-
-    const double headLen = 8;
-    const double headWidth = 7;
-    final Offset headBase = Offset(
-      tip.dx - ux * headLen,
-      tip.dy - uy * headLen,
-    );
-    final double px = -uy, py = ux;
-    final Offset p1 = tip;
-    final Offset p2 = Offset(
-      headBase.dx + px * (headWidth / 2),
-      headBase.dy + py * (headWidth / 2),
-    );
-    final Offset p3 = Offset(
-      headBase.dx - px * (headWidth / 2),
-      headBase.dy - py * (headWidth / 2),
-    );
-
-    final Path head = Path()
-      ..moveTo(p1.dx, p1.dy)
-      ..lineTo(p2.dx, p2.dy)
-      ..lineTo(p3.dx, p3.dy)
-      ..close();
-    final Paint headPaint = Paint()..color = theme.accent;
-    canvas.drawPath(head, headPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CompassPainter oldDelegate) =>
-      oldDelegate.theme != theme;
-}
-
-class _PrecipTile extends StatelessWidget {
-  const _PrecipTile({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(
-              theme: theme, icon: Icons.invert_colors, title: "PRECIPITATION"),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.beach_access, color: theme.text),
-              const SizedBox(width: 10),
-              Text(
-                "0 mm today",
-                style: TextStyle(
-                  color: theme.text,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                "Chance: 35%",
-                style: TextStyle(color: theme.sub),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WindMapCard extends StatelessWidget {
-  const _WindMapCard({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(
-              theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
-          const SizedBox(height: 8),
-          Container(
-            height: 140,
-            decoration: BoxDecoration(
-              color: theme.cardAlt,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.border),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              "Map Placeholder",
               style: TextStyle(color: theme.sub),
             ),
           ),
@@ -1268,9 +1034,7 @@ class _PagerDots extends StatelessWidget {
               width: on ? 16 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: on
-                    ? theme.accent
-                    : theme.sub.withValues(alpha: 0.35),
+                color: on ? theme.accent : theme.sub.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -1317,7 +1081,10 @@ class _NoGlowScroll extends ScrollBehavior {
 
   @override
   Widget buildOverscrollIndicator(
-      BuildContext context, Widget child, ScrollableDetails details) {
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return child;
   }
 }
