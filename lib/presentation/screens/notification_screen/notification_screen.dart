@@ -35,27 +35,150 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return 'Your current location';
   }
 
-  String _rainPreview(WeatherSnapshot snapshot, String locationLabel) {
-    if (snapshot.isFallback || snapshot.hourly.isEmpty) {
-      return 'Rain outlook is unavailable right now.';
+  String _leadLabel(DateTime target, DateTime now) {
+    final minutes = target.difference(now).inMinutes;
+    if (minutes < 60) {
+      final safe = minutes.clamp(1, 59);
+      return safe == 1 ? '1 minute' : '$safe minutes';
     }
+    final hours = (minutes / 60).round().clamp(1, 48);
+    return hours == 1 ? '1 hour' : '$hours hours';
+  }
+
+  _AlertPreview? _rainPreview(WeatherSnapshot snapshot, DateTime now) {
+    if (snapshot.isFallback || snapshot.hourly.isEmpty) return null;
     const threshold = 0.4;
+    final next = snapshot.hourly
+        .where((h) => !h.time.isBefore(now))
+        .where((h) => h.precipProbability >= threshold)
+        .toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
+    if (next.isEmpty) return null;
+    final location = _locationLabel(snapshot.location);
+    final label = _leadLabel(next.first.time, now);
+    return _AlertPreview(
+      time: next.first.time,
+      title: 'Rain probability',
+      message: 'Rain may be possible in $location in $label — take an umbrella.',
+    );
+  }
+
+  _AlertPreview? _uvPreview(WeatherSnapshot snapshot, DateTime now) {
+    if (snapshot.isFallback || snapshot.hourly.isEmpty) return null;
+    const threshold = 6;
+    final next = snapshot.hourly
+        .where((h) => !h.time.isBefore(now))
+        .where((h) => (h.uvIndex ?? 0) >= threshold)
+        .toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
+    if (next.isEmpty) return null;
+    final location = _locationLabel(snapshot.location);
+    final label = _leadLabel(next.first.time, now);
+    return _AlertPreview(
+      time: next.first.time,
+      title: 'UV alert',
+      message: 'High UV may be possible in $location in $label. Wear sunscreen.',
+    );
+  }
+
+  _AlertPreview? _visibilityPreview(WeatherSnapshot snapshot, DateTime now) {
+    if (snapshot.isFallback || snapshot.hourly.isEmpty) return null;
+    const thresholdKm = 5.0;
+    final next = snapshot.hourly
+        .where((h) => !h.time.isBefore(now))
+        .where((h) => h.visibilityKm != null && h.visibilityKm! <= thresholdKm)
+        .toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
+    if (next.isEmpty) return null;
+    final location = _locationLabel(snapshot.location);
+    final label = _leadLabel(next.first.time, now);
+    return _AlertPreview(
+      time: next.first.time,
+      title: 'Visibility alert',
+      message: 'Low visibility possible in $location in $label. Drive carefully.',
+    );
+  }
+
+  _AlertPreview? _sunrisePreview(WeatherSnapshot snapshot, DateTime now) {
+    final times = snapshot.daily
+        .map((d) => d.sunriseTime)
+        .whereType<DateTime>()
+        .where((t) => !t.isBefore(now))
+        .toList()
+      ..sort();
+    if (times.isEmpty) return null;
+    final location = _locationLabel(snapshot.location);
+    return _AlertPreview(
+      time: times.first,
+      title: 'Sunrise',
+      message: 'Sunrise in $location.',
+    );
+  }
+
+  _AlertPreview? _sunsetPreview(WeatherSnapshot snapshot, DateTime now) {
+    final times = snapshot.daily
+        .map((d) => d.sunsetTime)
+        .whereType<DateTime>()
+        .where((t) => !t.isBefore(now))
+        .toList()
+      ..sort();
+    if (times.isEmpty) return null;
+    final location = _locationLabel(snapshot.location);
+    return _AlertPreview(
+      time: times.first,
+      title: 'Sunset',
+      message: 'Sunset in $location.',
+    );
+  }
+
+  _AlertPreview? _airQualityPreview(WeatherSnapshot snapshot, DateTime now) {
+    final aqi = snapshot.airQuality?.aqi;
+    if (aqi == null || aqi < 100) return null;
+    final location = _locationLabel(snapshot.location);
+    final category = snapshot.airQuality?.category ?? 'Poor air quality';
+    return _AlertPreview(
+      time: now.add(const Duration(minutes: 5)),
+      title: 'Air quality alert',
+      message: '$category in $location. Limit outdoor activity.',
+    );
+  }
+
+  _AlertPreview? _nextAlertPreview(
+    List<WeatherSnapshot> snapshots,
+    SettingsState settings,
+  ) {
     final now = DateTime.now();
-    HourlyWeather? next;
-    for (final hour in snapshot.hourly) {
-      if (hour.time.isBefore(now)) continue;
-      if (hour.precipProbability >= threshold) {
-        next = hour;
-        break;
+    final events = <_AlertPreview>[];
+    for (final snapshot in snapshots) {
+      if (snapshot.isFallback) continue;
+      if (settings.notifyRain) {
+        final event = _rainPreview(snapshot, now);
+        if (event != null) events.add(event);
+      }
+      if (settings.notifySunrise) {
+        final event = _sunrisePreview(snapshot, now);
+        if (event != null) events.add(event);
+      }
+      if (settings.notifySunset) {
+        final event = _sunsetPreview(snapshot, now);
+        if (event != null) events.add(event);
+      }
+      if (settings.notifyUv) {
+        final event = _uvPreview(snapshot, now);
+        if (event != null) events.add(event);
+      }
+      if (settings.notifyVisibility) {
+        final event = _visibilityPreview(snapshot, now);
+        if (event != null) events.add(event);
+      }
+      if (settings.notifyAirQuality) {
+        final event = _airQualityPreview(snapshot, now);
+        if (event != null) events.add(event);
       }
     }
-    if (next == null) {
-      return 'No rain expected in the next 24 hours.';
-    }
-    final minutes = next.time.difference(now).inMinutes;
-    final roundedHours = (minutes / 60).round().clamp(1, 48).toInt();
-    final hoursLabel = roundedHours == 1 ? '1 hour' : '$roundedHours hours';
-    return 'Rain may be possible in $locationLabel in $hoursLabel — take an umbrella.';
+    if (events.isEmpty) return null;
+    events.sort((a, b) => a.time.compareTo(b.time));
+    return events.first;
   }
 
   @override
@@ -64,32 +187,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final weather = context.watch<WeatherState>();
     final locations = weather.locations;
     final locationKeys = locations.map((loc) => loc.cacheKey()).toList();
-    var selectedKey = settings.notifyLocationKey;
-    if (selectedKey == null || !locationKeys.contains(selectedKey)) {
-      if (locationKeys.isNotEmpty) {
-        final fallback = locationKeys.first;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          context.read<SettingsState>().setNotifyLocationKey(fallback);
-        });
-        selectedKey = fallback;
+    final hasSelection = settings.hasNotifyLocationSelection;
+    final selectedKeys = hasSelection
+        ? settings.notifyLocationKeys.toSet()
+        : locationKeys.toSet();
+    final selectedSnapshots = <WeatherSnapshot>[];
+    for (int i = 0; i < locationKeys.length; i++) {
+      if (selectedKeys.contains(locationKeys[i])) {
+        selectedSnapshots.add(weather.snapshotForIndex(i));
       }
     }
-    WeatherLocation? selectedLocation;
-    WeatherSnapshot? selectedSnapshot;
-    if (selectedKey != null) {
-      final index = locationKeys.indexOf(selectedKey);
-      if (index != -1) {
-        selectedLocation = locations[index];
-        selectedSnapshot = weather.snapshotForIndex(index);
-      }
-    }
-    final snapshot = selectedSnapshot ?? weather.snapshot;
-    final locationLabel =
-        _locationLabel(selectedLocation ?? snapshot.location);
-    final rainPreview = settings.notifyRain
-        ? _rainPreview(snapshot, locationLabel)
-        : 'Rain alerts are off.';
+    final hasAlertsEnabled = settings.notifyRain ||
+        settings.notifySunrise ||
+        settings.notifySunset ||
+        settings.notifyUv ||
+        settings.notifyAirQuality ||
+        settings.notifyVisibility;
+    final nextAlert = _nextAlertPreview(selectedSnapshots, settings);
+    final alertPreview = !hasAlertsEnabled
+        ? 'All alerts are turned off.'
+        : locations.isEmpty
+            ? 'Add a location to start receiving alerts.'
+            : selectedKeys.isEmpty
+                ? 'Select at least one location to receive alerts.'
+                : nextAlert?.message ??
+                    'No alerts expected for the selected locations.';
 
     return Scaffold(
       backgroundColor: theme.bg,
@@ -118,7 +240,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Location to warn',
+                  'Locations to warn',
                   style: TextStyle(
                     color: theme.text,
                     fontWeight: FontWeight.w600,
@@ -140,14 +262,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       for (int i = 0; i < locations.length; i++) ...[
                         if (i > 0)
                           Divider(color: theme.border, height: 16),
-                        _LocationOption(
+                        _LocationToggle(
                           theme: theme,
                           title: _locationLabel(locations[i]),
                           subtitle: locations[i].subtitle,
-                          selected: locationKeys[i] == selectedKey,
-                          onTap: () => context
-                              .read<SettingsState>()
-                              .setNotifyLocationKey(locationKeys[i]),
+                          selected: selectedKeys.contains(locationKeys[i]),
+                          onChanged: (value) {
+                            final keys = Set<String>.from(selectedKeys);
+                            if (value) {
+                              keys.add(locationKeys[i]);
+                            } else {
+                              keys.remove(locationKeys[i]);
+                            }
+                            context
+                                .read<SettingsState>()
+                                .setNotifyLocationKeys(keys.toList());
+                          },
                         ),
                       ],
                     ],
@@ -171,7 +301,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  rainPreview,
+                  alertPreview,
                   style: TextStyle(
                     color: theme.sub,
                     fontSize: 14,
@@ -247,6 +377,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 }
 
+class _AlertPreview {
+  const _AlertPreview({
+    required this.time,
+    required this.title,
+    required this.message,
+  });
+
+  final DateTime time;
+  final String title;
+  final String message;
+}
+
 class _RoundedCard extends StatelessWidget {
   final Widget child;
   final AppTheme theme;
@@ -318,20 +460,20 @@ class _IndicatorRow extends StatelessWidget {
   }
 }
 
-class _LocationOption extends StatelessWidget {
-  const _LocationOption({
+class _LocationToggle extends StatelessWidget {
+  const _LocationToggle({
     required this.theme,
     required this.title,
     required this.subtitle,
     required this.selected,
-    required this.onTap,
+    required this.onChanged,
   });
 
   final AppTheme theme;
   final String title;
   final String subtitle;
   final bool selected;
-  final VoidCallback onTap;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -340,18 +482,11 @@ class _LocationOption extends StatelessWidget {
         trimmedSubtitle.isNotEmpty && trimmedSubtitle != title.trim();
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
+      onTap: () => onChanged(!selected),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              color: selected ? theme.accent : theme.sub,
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,6 +511,16 @@ class _LocationOption extends StatelessWidget {
                       ),
                     ),
                 ],
+              ),
+            ),
+            Switch(
+              value: selected,
+              onChanged: onChanged,
+              thumbColor: WidgetStatePropertyAll(theme.cardAlt),
+              trackColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? theme.accent.withValues(alpha: 0.5)
+                    : theme.border,
               ),
             ),
           ],

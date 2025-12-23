@@ -39,11 +39,13 @@ class LocationsView extends StatefulWidget {
     required this.theme,
     required this.onSelectIndex,
     this.showBackButton = true,
+    this.bottomInset = 0,
   });
 
   final AppTheme theme;
   final ValueChanged<int> onSelectIndex;
   final bool showBackButton;
+  final double bottomInset;
 
   @override
   State<LocationsView> createState() => _LocationsViewState();
@@ -57,14 +59,50 @@ class _LocationsViewState extends State<LocationsView> {
   bool _searching = false;
   String? _searchError;
   String? _addingPlaceId;
+  int _addRequestId = 0;
   List<PlaceSuggestion> _suggestions = [];
-  bool _editing = false;
 
   @override
   void dispose() {
     _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  int _matchLocationIndex(
+    WeatherState weather, {
+    PlaceSuggestion? suggestion,
+    PlaceDetails? details,
+  }) {
+    final placeId = details?.placeId ?? suggestion?.placeId;
+    if (placeId != null) {
+      final idx = weather.locations
+          .indexWhere((loc) => loc.placeId == placeId);
+      if (idx != -1) return idx;
+    }
+
+    if (details != null) {
+      const threshold = 0.01;
+      for (int i = 0; i < weather.locations.length; i++) {
+        final loc = weather.locations[i];
+        if ((loc.latitude - details.latitude).abs() < threshold &&
+            (loc.longitude - details.longitude).abs() < threshold) {
+          return i;
+        }
+      }
+    }
+
+    if (suggestion != null) {
+      final name = suggestion.primaryText.trim().toLowerCase();
+      final secondary = suggestion.secondaryText.trim().toLowerCase();
+      for (int i = 0; i < weather.locations.length; i++) {
+        final loc = weather.locations[i];
+        if (loc.name.trim().toLowerCase() != name) continue;
+        if (secondary.isEmpty) return i;
+        if (loc.subtitle.trim().toLowerCase().contains(secondary)) return i;
+      }
+    }
+    return -1;
   }
 
   List<int> _filteredIndices(WeatherState weather) {
@@ -88,6 +126,7 @@ class _LocationsViewState extends State<LocationsView> {
     final weather = context.watch<WeatherState>();
     final settings = context.watch<SettingsState>();
     final isOffline = weather.isOffline;
+    final isEditing = settings.locationsEditing;
     final results = _filteredIndices(weather);
     final trimmedQuery = _query.trim();
     final hasQuery = trimmedQuery.isNotEmpty;
@@ -112,7 +151,7 @@ class _LocationsViewState extends State<LocationsView> {
           _TopBar(
             theme: theme,
             showBackButton: widget.showBackButton,
-            isEditing: _editing,
+            isEditing: isEditing,
             onToggleEdit: _toggleEditing,
           ),
           const SizedBox(height: 16),
@@ -120,9 +159,9 @@ class _LocationsViewState extends State<LocationsView> {
             theme: theme,
             controller: _searchCtrl,
             onChanged: (v) => _onQueryChanged(v, deviceLocation, isOffline),
-            enabled: !_editing && !isOffline,
+            enabled: !isEditing && !isOffline,
           ),
-          if (isOffline && !_editing)
+          if (isOffline && !isEditing)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: _StatusLine(
@@ -132,7 +171,7 @@ class _LocationsViewState extends State<LocationsView> {
             ),
           const SizedBox(height: 16),
           Expanded(
-            child: _editing
+            child: isEditing
                 ? _buildEditList(weather, settings)
                 : Builder(
                     builder: (context) {
@@ -224,7 +263,9 @@ class _LocationsViewState extends State<LocationsView> {
                       }
 
                       return ListView(
-                        padding: const EdgeInsets.only(bottom: 20),
+                        padding: EdgeInsets.only(
+                          bottom: 20 + widget.bottomInset,
+                        ),
                         children: items,
                       );
                     },
@@ -267,15 +308,17 @@ class _LocationsViewState extends State<LocationsView> {
   }
 
   void _toggleEditing() {
+    final settings = context.read<SettingsState>();
+    final next = !settings.locationsEditing;
     setState(() {
-      _editing = !_editing;
-      if (_editing) {
+      if (next) {
         _searchCtrl.clear();
         _query = '';
         _searchError = null;
         _suggestions = [];
       }
     });
+    settings.setLocationsEditing(next);
   }
 
   Future<void> _searchPlaces(
@@ -325,19 +368,54 @@ class _LocationsViewState extends State<LocationsView> {
     PlaceSuggestion suggestion,
     WeatherState weather,
   ) async {
+    if (_addingPlaceId != null) return;
+    final existingIndex =
+        _matchLocationIndex(weather, suggestion: suggestion);
+    if (existingIndex != -1) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+        messenger.clearSnackBars();
+        widget.onSelectIndex(existingIndex);
+        _searchCtrl.clear();
+        setState(() {
+          _query = '';
+          _suggestions = [];
+          _searching = false;
+          _searchError = null;
+        });
+        return;
+      }
+    final requestId = ++_addRequestId;
     setState(() => _addingPlaceId = suggestion.placeId);
     try {
       PlaceDetails details;
       try {
         details = await _places.fetchDetails(suggestion.placeId);
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted || requestId != _addRequestId) return;
+        final existingIndex =
+            _matchLocationIndex(weather, suggestion: suggestion);
+        if (existingIndex != -1) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.clearSnackBars();
+          widget.onSelectIndex(existingIndex);
+          _searchCtrl.clear();
+          setState(() {
+            _query = '';
+            _suggestions = [];
+            _searching = false;
+            _searchError = null;
+          });
+          return;
+        }
         final message = e is PlacesApiException
             ? e.message
             : 'Unable to add that location.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        setState(() {
+          _searchError = message;
+          _searching = false;
+        });
         return;
       }
 
@@ -352,16 +430,38 @@ class _LocationsViewState extends State<LocationsView> {
       try {
         index = await weather.addLocation(location);
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted || requestId != _addRequestId) return;
+        final existingIndex = _matchLocationIndex(
+          weather,
+          suggestion: suggestion,
+          details: details,
+        );
+        if (existingIndex != -1) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.clearSnackBars();
+          widget.onSelectIndex(existingIndex);
+          _searchCtrl.clear();
+          setState(() {
+            _query = '';
+            _suggestions = [];
+            _searching = false;
+          });
+          return;
+        }
         final message = e is PlacesApiException
             ? e.message
             : 'Unable to add that location.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        setState(() {
+          _searchError = message;
+          _searching = false;
+        });
         return;
       }
-      if (!mounted) return;
+      if (!mounted || requestId != _addRequestId) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.clearSnackBars();
       widget.onSelectIndex(index);
       if (!mounted) return;
       _searchCtrl.clear();
@@ -369,9 +469,10 @@ class _LocationsViewState extends State<LocationsView> {
         _query = '';
         _suggestions = [];
         _searching = false;
+        _searchError = null;
       });
     } finally {
-      if (mounted) {
+      if (mounted && requestId == _addRequestId) {
         setState(() => _addingPlaceId = null);
       }
     }
@@ -454,7 +555,9 @@ class _LocationsViewState extends State<LocationsView> {
           Expanded(
             child: ReorderableListView(
               buildDefaultDragHandles: false,
-              padding: const EdgeInsets.only(bottom: 20),
+              padding: EdgeInsets.only(
+                bottom: 20 + widget.bottomInset,
+              ),
               onReorder: (oldIndex, newIndex) =>
                   _reorderSaved(oldIndex, newIndex, weather),
               children: List.generate(savedCount, (i) {
@@ -603,6 +706,26 @@ class _SearchBar extends StatelessWidget {
               ),
             ),
           ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              if (!enabled || value.text.isEmpty) {
+                return const SizedBox(width: 4);
+              }
+              return IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 28,
+                ),
+                icon: Icon(Icons.close_rounded, color: theme.sub, size: 18),
+                onPressed: () {
+                  controller.clear();
+                  onChanged('');
+                },
+              );
+            },
+          ),
         ],
       ),
     );
@@ -690,6 +813,8 @@ class _PlaceResultTile extends StatelessWidget {
                 children: [
                   Text(
                     suggestion.primaryText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: theme.text,
                       fontWeight: FontWeight.w600,
@@ -700,6 +825,8 @@ class _PlaceResultTile extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         suggestion.secondaryText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: theme.sub,
                           fontSize: 12,
@@ -792,25 +919,31 @@ class _LocationCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      location.name,
-                      style: TextStyle(
-                        color: theme.text,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        location.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.text,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(color: theme.sub),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: theme.sub),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -835,13 +968,17 @@ class _LocationCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Text(
-                  conditionText,
-                  style: TextStyle(
-                    color: showPlaceholder ? theme.sub : theme.text,
+                Expanded(
+                  child: Text(
+                    conditionText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: showPlaceholder ? theme.sub : theme.text,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 12),
                 Text(
                   hiLoText,
                   style: TextStyle(

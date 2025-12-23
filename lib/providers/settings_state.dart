@@ -13,6 +13,7 @@ class SettingsState extends ChangeNotifier {
   static const _notifyAirQualityKey = 'notifyAirQuality';
   static const _notifyVisibilityKey = 'notifyVisibility';
   static const _notifyLocationKey = 'notifyLocationKey';
+  static const _notifyLocationKeysKey = 'notifyLocationKeys';
 
   bool _showUmbrellaIndex = true;
   bool _useCelsius = true;
@@ -23,7 +24,8 @@ class SettingsState extends ChangeNotifier {
   bool _notifyUv = true;
   bool _notifyAirQuality = true;
   bool _notifyVisibility = true;
-  String? _notifyLocationKeyValue;
+  List<String>? _notifyLocationKeys;
+  bool _locationsEditing = false;
   bool _loaded = false;
   SharedPreferences? _prefs;
 
@@ -36,7 +38,10 @@ class SettingsState extends ChangeNotifier {
   bool get notifyUv => _notifyUv;
   bool get notifyAirQuality => _notifyAirQuality;
   bool get notifyVisibility => _notifyVisibility;
-  String? get notifyLocationKey => _notifyLocationKeyValue;
+  List<String> get notifyLocationKeys =>
+      List.unmodifiable(_notifyLocationKeys ?? const []);
+  bool get hasNotifyLocationSelection => _notifyLocationKeys != null;
+  bool get locationsEditing => _locationsEditing;
   bool get loaded => _loaded;
 
   SettingsState() {
@@ -54,7 +59,21 @@ class SettingsState extends ChangeNotifier {
     _notifyUv = _prefs?.getBool(_notifyUvKey) ?? true;
     _notifyAirQuality = _prefs?.getBool(_notifyAirQualityKey) ?? true;
     _notifyVisibility = _prefs?.getBool(_notifyVisibilityKey) ?? true;
-    _notifyLocationKeyValue = _prefs?.getString(_notifyLocationKey);
+    final storedKeys = _prefs?.getStringList(_notifyLocationKeysKey);
+    if (storedKeys != null) {
+      _notifyLocationKeys = _dedupeKeys(storedKeys);
+    } else {
+      final legacyKey = _prefs?.getString(_notifyLocationKey);
+      final trimmedLegacy = legacyKey?.trim();
+      if (trimmedLegacy != null && trimmedLegacy.isNotEmpty) {
+        _notifyLocationKeys = [trimmedLegacy];
+        await _prefs?.setStringList(
+          _notifyLocationKeysKey,
+          _notifyLocationKeys!,
+        );
+        await _prefs?.remove(_notifyLocationKey);
+      }
+    }
     _loaded = true;
     notifyListeners();
   }
@@ -119,15 +138,44 @@ class SettingsState extends ChangeNotifier {
     await NotificationService.instance.rescheduleFromCache();
   }
 
-  Future<void> setNotifyLocationKey(String? value) async {
-    final trimmed = value?.trim();
-    _notifyLocationKeyValue = trimmed?.isEmpty ?? true ? null : trimmed;
+  Future<void> setNotifyLocationKeys(List<String> keys) async {
+    _notifyLocationKeys = _dedupeKeys(keys);
     notifyListeners();
-    if (_notifyLocationKeyValue == null) {
-      await _prefs?.remove(_notifyLocationKey);
-    } else {
-      await _prefs?.setString(_notifyLocationKey, _notifyLocationKeyValue!);
-    }
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.setStringList(_notifyLocationKeysKey, _notifyLocationKeys!);
+    await _prefs?.remove(_notifyLocationKey);
     await NotificationService.instance.rescheduleFromCache();
+  }
+
+  Future<void> toggleNotifyLocationKey(String key, bool enabled) async {
+    final trimmed = key.trim();
+    if (trimmed.isEmpty) return;
+    final current = _notifyLocationKeys == null
+        ? <String>{}
+        : _notifyLocationKeys!.toSet();
+    if (enabled) {
+      current.add(trimmed);
+    } else {
+      current.remove(trimmed);
+    }
+    await setNotifyLocationKeys(current.toList());
+  }
+
+  void setLocationsEditing(bool value) {
+    if (_locationsEditing == value) return;
+    _locationsEditing = value;
+    notifyListeners();
+  }
+
+  List<String> _dedupeKeys(List<String> keys) {
+    final seen = <String>{};
+    final cleaned = <String>[];
+    for (final key in keys) {
+      final trimmed = key.trim();
+      if (trimmed.isEmpty || seen.contains(trimmed)) continue;
+      seen.add(trimmed);
+      cleaned.add(trimmed);
+    }
+    return cleaned;
   }
 }

@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'weather_models.dart';
 import 'weather_service.dart';
+import 'api_key_store.dart';
 
 class NotificationService {
   NotificationService._();
@@ -82,6 +83,7 @@ class NotificationService {
   Future<void> refreshFromBackground() async {
     await initialize();
     if (!_initialized) return;
+    await ApiKeyStore.instance.load(allowRemote: false);
     final prefs = await SharedPreferences.getInstance();
     final cachedSnapshots = _loadSnapshotCache(prefs);
     final locations = <WeatherLocation>[
@@ -119,16 +121,28 @@ class NotificationService {
     final notifyUv = prefs.getBool('notifyUv') ?? true;
     final notifyAirQuality = prefs.getBool('notifyAirQuality') ?? true;
     final notifyVisibility = prefs.getBool('notifyVisibility') ?? true;
-    final notifyLocationKey = prefs.getString('notifyLocationKey');
+    final notifyLocationKeys = prefs.getStringList('notifyLocationKeys');
+    final legacyLocationKey = notifyLocationKeys == null
+        ? prefs.getString('notifyLocationKey')
+        : null;
 
     await _plugin.cancelAllPendingNotifications();
-    final scopedSnapshots = notifyLocationKey == null || notifyLocationKey.isEmpty
-        ? _lastSnapshots
-        : _lastSnapshots
-            .where((snap) => snap.location.cacheKey() == notifyLocationKey)
+    final scopedSnapshots = () {
+      if (notifyLocationKeys == null) {
+        if (legacyLocationKey == null || legacyLocationKey.isEmpty) {
+          return _lastSnapshots;
+        }
+        return _lastSnapshots
+            .where((snap) => snap.location.cacheKey() == legacyLocationKey)
             .toList();
-    final effectiveSnapshots =
-        scopedSnapshots.isEmpty ? _lastSnapshots : scopedSnapshots;
+      }
+      if (notifyLocationKeys.isEmpty) return <WeatherSnapshot>[];
+      return _lastSnapshots
+          .where((snap) => notifyLocationKeys.contains(snap.location.cacheKey()))
+          .toList();
+    }();
+
+    final effectiveSnapshots = scopedSnapshots;
     if (effectiveSnapshots.isEmpty ||
         (!notifyRain &&
             !notifySunrise &&

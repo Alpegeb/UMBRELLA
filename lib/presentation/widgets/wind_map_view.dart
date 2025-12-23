@@ -34,6 +34,7 @@ class WindMapView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final flowDegrees = (windDirectionDegrees + 180) % 360;
     return Stack(
       children: [
         Positioned.fill(
@@ -47,7 +48,7 @@ class WindMapView extends StatelessWidget {
         Positioned.fill(
           child: CustomPaint(
             painter: _WindOverlayPainter(
-              directionDegrees: windDirectionDegrees,
+              directionDegrees: flowDegrees,
               speedKph: windSpeedKph,
               color: overlayColor,
               windInKph: windInKph,
@@ -59,7 +60,7 @@ class WindMapView extends StatelessWidget {
           Center(
             child: _LocationMarker(
               color: markerColor,
-              directionDegrees: windDirectionDegrees,
+              directionDegrees: flowDegrees,
             ),
           ),
       ],

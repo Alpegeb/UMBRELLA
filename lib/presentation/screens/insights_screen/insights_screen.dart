@@ -10,8 +10,16 @@ class InsightsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final current = context.watch<WeatherState>().snapshot.current;
+    final snapshot = context.watch<WeatherState>().snapshot;
+    final current = snapshot.current;
     final index = umbrellaIndex(current);
+    final now = DateTime.now();
+    final today = dailyForDate(snapshot.daily, now);
+    final sunrise = today?.sunriseTime;
+    final sunset = today?.sunsetTime;
+    final isNight = sunrise != null && sunset != null
+        ? now.isBefore(sunrise) || now.isAfter(sunset)
+        : now.hour < 6 || now.hour >= 18;
 
     return Scaffold(
       backgroundColor: theme.bg,
@@ -38,14 +46,24 @@ class InsightsScreen extends StatelessWidget {
                       theme: theme,
                       icon: Icons.thermostat_rounded,
                       title: "THE SWEET SPOT",
-                      text: temperatureComfortText(current.tempC),
+                      text: temperatureComfortText(
+                        current.tempC,
+                        now: now,
+                        sunrise: sunrise,
+                        sunset: sunset,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _Insight(
                       theme: theme,
                       icon: Icons.auto_awesome_rounded,
                       title: "COZY & FOCUSED",
-                      text: skyInsightText(current.condition),
+                      text: skyInsightText(
+                        current.condition,
+                        now: now,
+                        sunrise: sunrise,
+                        sunset: sunset,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _Insight(
@@ -53,7 +71,7 @@ class InsightsScreen extends StatelessWidget {
                       icon: Icons.umbrella_rounded,
                       title: "PLAN AHEAD",
                       text:
-                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${index >= 6 ? "A compact umbrella might help later." : "Rain looks unlikely today."}",
+                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${index >= 6 ? "A compact umbrella might help later." : isNight ? "Rain looks unlikely tonight." : "Rain looks unlikely today."}",
                     ),
                   ],
                 ),

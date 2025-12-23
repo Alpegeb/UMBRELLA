@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
+import '../../../core/theme_pref.dart';
+import '../../../providers/auth_state.dart';
+import '../../../providers/settings_state.dart';
+import '../about_screen/about_screen.dart';
 import '../feedback_screen/feedback_screen.dart';
 import '../notification_screen/notification_screen.dart';
 
-import 'package:provider/provider.dart';
-
-
-import 'package:umbrella/providers/auth_state.dart';
-import 'package:umbrella/providers/settings_state.dart';
-
+const String _kAppVersionLabel = '0.2.0';
+const String _kAppBuildLabel = '2';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -45,9 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _handleThemeChange(ThemePref pref) {
-    setState(() {
-      _selectedPref = pref;
-    });
+    setState(() => _selectedPref = pref);
     widget.onThemePrefChanged(pref);
   }
 
@@ -94,8 +93,6 @@ class SettingsPage extends StatelessWidget {
   final ThemePref themePref;
   final ValueChanged<ThemePref> onSetThemePref;
 
-  TextStyle getTitleStyle() =>
-      TextStyle(color: colors.text, fontWeight: FontWeight.w700);
   TextStyle getLabelStyle() =>
       TextStyle(color: colors.text, fontWeight: FontWeight.w600);
   TextStyle getSubStyle() => TextStyle(color: colors.sub);
@@ -111,6 +108,7 @@ class SettingsPage extends StatelessWidget {
       child: ListView(
         children: [
           const SizedBox(height: 8),
+
           _Section(
             title: "Appearance",
             color: colors,
@@ -132,7 +130,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "Units",
             color: colors,
@@ -159,7 +159,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "Notifications",
             color: colors,
@@ -182,7 +184,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "About",
             color: colors,
@@ -191,18 +195,27 @@ class SettingsPage extends StatelessWidget {
                 color: colors,
                 icon: Icons.info_outline,
                 title: "About Umbrella",
-                subtitle: "Version 0.1 • Mock build",
+                subtitle: "Version $_kAppVersionLabel • Build $_kAppBuildLabel",
                 labelStyle: labelStyle,
                 subStyle: subStyle,
+                trailing: Icon(Icons.chevron_right, color: colors.sub),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Umbrella 0.1 (mock)")),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AboutScreen(
+                        appTheme: colors,
+                        versionLabel:
+                            'Version $_kAppVersionLabel (Build $_kAppBuildLabel)',
+                      ),
+                    ),
                   );
                 },
               ),
             ],
           ),
+
           const SizedBox(height: 12),
+
           _Section(
             title: "Support",
             color: colors,
@@ -225,13 +238,16 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 12),
+
           _Section(
             title: "Account",
             color: colors,
             children: [
               ListTile(
-                leading: Icon(Icons.logout, color: Colors.redAccent),
-                title: Text(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text(
                   "Sign out",
                   style: TextStyle(
                     color: Colors.redAccent,
@@ -240,16 +256,16 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () async {
                   await context.read<AuthState>().logout();
+                  if (!context.mounted) return;
 
-
-                  },
-
-
+                  // AuthGate stream ile otomatik LoginScreen'e döner.
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
               ),
             ],
           ),
 
-
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -296,9 +312,8 @@ class _ThemeSegment extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: value == opt.$1 ? color.card : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
-                      border: value == opt.$1
-                          ? Border.all(color: color.border)
-                          : null,
+                      border:
+                          value == opt.$1 ? Border.all(color: color.border) : null,
                     ),
                     child: Column(
                       children: [
@@ -409,7 +424,7 @@ class _SwitchTile extends StatelessWidget {
         onChanged: onChanged,
         thumbColor: WidgetStatePropertyAll(color.cardAlt),
         trackColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
+          (states) => states.contains(WidgetState.selected)
               ? color.accent.withValues(alpha: 0.4)
               : color.border,
         ),

@@ -74,27 +74,77 @@ String windDirectionLabel(int degrees) {
   return dirs[idx];
 }
 
-String temperatureComfortText(double tempC) {
+String temperatureComfortText(
+  double tempC, {
+  DateTime? now,
+  DateTime? sunrise,
+  DateTime? sunset,
+}) {
+  final isNight = _isNightTime(
+    now ?? DateTime.now(),
+    sunrise: sunrise,
+    sunset: sunset,
+  );
   if (tempC <= 0) return 'Freezing conditions. Dress in layers.';
   if (tempC < 8) return 'Cold and crisp. A warm jacket helps.';
   if (tempC < 16) return 'Cool and comfortable for a light jacket.';
-  if (tempC < 24) return 'Mild and pleasant. Great for a walk.';
-  if (tempC < 30) return 'Warm and sunny. Stay hydrated.';
-  return 'Hot conditions. Seek shade when possible.';
+  if (tempC < 24) {
+    return isNight
+        ? 'Mild night air — great for a light layer.'
+        : 'Mild and pleasant. Great for a walk.';
+  }
+  if (tempC < 30) {
+    return isNight
+        ? 'Warm night ahead. Keep a drink nearby.'
+        : 'Warm and bright. Stay hydrated.';
+  }
+  return isNight
+      ? 'Hot night ahead. Keep cool indoors if possible.'
+      : 'Hot conditions. Seek shade when possible.';
 }
 
-String skyInsightText(String condition) {
+String skyInsightText(
+  String condition, {
+  DateTime? now,
+  DateTime? sunrise,
+  DateTime? sunset,
+}) {
   final c = condition.toLowerCase();
+  final isNight = _isNightTime(
+    now ?? DateTime.now(),
+    sunrise: sunrise,
+    sunset: sunset,
+  );
+
   if (c.contains('rain') || c.contains('storm')) {
-    return 'Rainy conditions could slow outdoor plans.';
+    return isNight
+        ? 'Rainy skies tonight could slow evening plans.'
+        : 'Rainy conditions could slow outdoor plans.';
   }
   if (c.contains('cloud') || c.contains('overcast')) {
-    return 'Cloudy skies reduce glare, improving focus indoors.';
+    return isNight
+        ? 'Cloudy skies tonight keep things calm and dim.'
+        : 'Cloudy skies reduce glare, improving focus indoors.';
   }
   if (c.contains('sun') || c.contains('clear')) {
-    return 'Bright skies boost mood and visibility outdoors.';
+    return isNight
+        ? 'Clear skies tonight improve visibility for late plans.'
+        : 'Bright skies boost mood and visibility outdoors.';
   }
-  return 'Mixed skies with changing conditions today.';
+  return isNight
+      ? 'Changing skies tonight — expect a quiet evening.'
+      : 'Mixed skies with changing conditions today.';
+}
+
+bool _isNightTime(
+  DateTime now, {
+  DateTime? sunrise,
+  DateTime? sunset,
+}) {
+  if (sunrise != null && sunset != null) {
+    return now.isBefore(sunrise) || now.isAfter(sunset);
+  }
+  return now.hour < 6 || now.hour >= 18;
 }
 
 String humidityInsightText(double? humidity) {

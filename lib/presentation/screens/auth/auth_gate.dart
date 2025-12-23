@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../core/app_theme.dart';
+import '../../../core/theme_pref.dart';
 import '../../../providers/auth_state.dart';
 import '../../screens/main_screen/main_screen.dart';
-import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
