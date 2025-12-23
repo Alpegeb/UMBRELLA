@@ -23,7 +23,6 @@ class ItemsState extends ChangeNotifier {
     error = null;
 
     if (_user == null) {
-      loading = false;
       notifyListeners();
       return;
     }
@@ -48,16 +47,17 @@ class ItemsState extends ChangeNotifier {
     await _svc.addItem(uid, title);
   }
 
-  Future<void> update(String id, String title) async {
-    final uid = _user?.uid;
-    if (uid == null) return;
-    await _svc.updateItem(uid, id, title: title);
-  }
-
   Future<void> remove(String id) async {
     final uid = _user?.uid;
     if (uid == null) return;
     await _svc.deleteItem(uid, id);
+  }
+
+  // ✅ Step-3 UPDATE
+  Future<void> update(String id, String title) async {
+    final uid = _user?.uid;
+    if (uid == null) return;
+    await _svc.updateItem(uid, id, title);
   }
 
   @override
