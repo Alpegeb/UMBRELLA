@@ -25,7 +25,7 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
       if (!mounted) return;
       setState(() => _themePref = pref);
     }).catchError((_) {
-      // ignore: keep system default if storage fails
+      // keep system default if storage fails
     });
   }
 
@@ -47,7 +47,11 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
 
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthState()),
+        ChangeNotifierProvider<AuthState>(
+          create: (_) => AuthState(),
+        ),
+
+        // ItemsState needs to know the current user for Firestore paths.
         ChangeNotifierProxyProvider<AuthState, ItemsState>(
           create: (_) => ItemsState(),
           update: (_, auth, items) {
@@ -57,18 +61,29 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'Umbrella',
-        debugShowCheckedModeBanner: false,
-        theme: appTheme.materialTheme,
-        home: AuthGate(
-          appTheme: appTheme,
-          themePref: _themePref,
-          onThemePrefChanged: (pref) {
-            setState(() => _themePref = pref);
-            _store.save(pref);
-          },
-        ),
+      child: Builder(
+        builder: (context) {
+          // Recompute in case system theme changes while app is running.
+          final themeNow = _themePref == ThemePref.system
+              ? (MediaQuery.platformBrightnessOf(context) == Brightness.light
+                  ? AppTheme.light
+                  : AppTheme.dark)
+              : appTheme;
+
+          return MaterialApp(
+            title: 'Umbrella',
+            debugShowCheckedModeBanner: false,
+            theme: themeNow.materialTheme,
+            home: AuthGate(
+              appTheme: themeNow,
+              themePref: _themePref,
+              onThemePrefChanged: (pref) {
+                setState(() => _themePref = pref);
+                _store.save(pref);
+              },
+            ),
+          );
+        },
       ),
     );
   }
