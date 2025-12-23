@@ -244,6 +244,8 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () async {
                   await context.read<AuthState>().logout();
+                  if (!context.mounted) return;
+
                   // AuthGate stream ile otomatik LoginScreen'e döner.
                   if (Navigator.canPop(context)) Navigator.pop(context);
                 },
