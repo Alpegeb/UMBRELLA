@@ -16,7 +16,6 @@ class UmbrellaApp extends StatefulWidget {
 
 class _UmbrellaAppState extends State<UmbrellaApp> {
   final _store = ThemePrefStore();
-
   ThemePref _themePref = ThemePref.system;
 
   @override
@@ -25,6 +24,8 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
     _store.load().then((pref) {
       if (!mounted) return;
       setState(() => _themePref = pref);
+    }).catchError((_) {
+      // ignore: keep system default if storage fails
     });
   }
 
@@ -47,7 +48,6 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthState()),
-
         ChangeNotifierProxyProvider<AuthState, ItemsState>(
           create: (_) => ItemsState(),
           update: (_, auth, items) {
