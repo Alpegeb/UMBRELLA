@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_theme.dart';
+import '../core/theme_pref.dart';
 import '../providers/auth_state.dart';
 import '../providers/items_state.dart';
 import '../presentation/screens/auth/auth_gate.dart';
-
-enum ThemePref { light, system, dark }
 
 class UmbrellaApp extends StatefulWidget {
   const UmbrellaApp({super.key});
@@ -16,7 +15,18 @@ class UmbrellaApp extends StatefulWidget {
 }
 
 class _UmbrellaAppState extends State<UmbrellaApp> {
+  final _store = ThemePrefStore();
+
   ThemePref _themePref = ThemePref.system;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.load().then((pref) {
+      if (!mounted) return;
+      setState(() => _themePref = pref);
+    });
+  }
 
   AppTheme _paletteFor(BuildContext context) {
     switch (_themePref) {
@@ -41,7 +51,7 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
         ChangeNotifierProxyProvider<AuthState, ItemsState>(
           create: (_) => ItemsState(),
           update: (_, auth, items) {
-            final st = items ?? ItemsState(); // <-- null-safe
+            final st = items ?? ItemsState();
             st.bindUser(auth.user);
             return st;
           },
@@ -54,7 +64,10 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
         home: AuthGate(
           appTheme: appTheme,
           themePref: _themePref,
-          onThemePrefChanged: (pref) => setState(() => _themePref = pref),
+          onThemePrefChanged: (pref) {
+            setState(() => _themePref = pref);
+            _store.save(pref);
+          },
         ),
       ),
     );
