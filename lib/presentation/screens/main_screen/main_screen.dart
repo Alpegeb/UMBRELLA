@@ -189,8 +189,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    AveragesScreen(appTheme: theme),
+                                builder: (_) => AveragesScreen(appTheme: theme),
                               ),
                             );
                           },
@@ -204,9 +203,8 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => PrecipitationGraphsScreen(
-                                  appTheme: theme,
-                                ),
+                                builder: (_) =>
+                                    PrecipitationGraphsScreen(appTheme: theme),
                               ),
                             );
                           },
@@ -275,7 +273,6 @@ class _ItemsCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-
               if (st.loading)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -287,10 +284,7 @@ class _ItemsCard extends StatelessWidget {
                   ),
                 )
               else if (st.error != null)
-                Text(
-                  st.error!,
-                  style: const TextStyle(color: Colors.red),
-                )
+                Text(st.error!, style: const TextStyle(color: Colors.red))
               else if (st.items.isEmpty)
                 Text(
                   "No items yet. Tap + to add one.",
@@ -329,8 +323,7 @@ class _ItemsCard extends StatelessWidget {
                                 tooltip: "Edit",
                                 onPressed: () =>
                                     _openEditDialog(context, id, title),
-                                icon:
-                                    Icon(Icons.edit, color: theme.text),
+                                icon: Icon(Icons.edit, color: theme.text),
                               ),
                               IconButton(
                                 tooltip: "Delete",
@@ -353,7 +346,9 @@ class _ItemsCard extends StatelessWidget {
   }
 
   Future<void> _openAddDialog(BuildContext context) async {
+    final items = context.read<ItemsState>(); // ✅ async gap öncesi al
     final ctrl = TextEditingController();
+
     final ok = await _openTextDialog(
       context,
       title: "Add Item",
@@ -366,12 +361,17 @@ class _ItemsCard extends StatelessWidget {
     final title = ctrl.text.trim();
     if (title.isEmpty) return;
 
-    await context.read<ItemsState>().add(title);
+    await items.add(title);
   }
 
   Future<void> _openEditDialog(
-      BuildContext context, String id, String currentTitle) async {
+    BuildContext context,
+    String id,
+    String currentTitle,
+  ) async {
+    final items = context.read<ItemsState>(); // ✅ async gap öncesi al
     final ctrl = TextEditingController(text: currentTitle);
+
     final ok = await _openTextDialog(
       context,
       title: "Edit Item",
@@ -384,7 +384,7 @@ class _ItemsCard extends StatelessWidget {
     final title = ctrl.text.trim();
     if (title.isEmpty) return;
 
-    await context.read<ItemsState>().update(id, title);
+    await items.update(id, title);
   }
 
   Future<bool?> _openTextDialog(
@@ -446,6 +446,7 @@ class _UmbrellaIndexLine extends StatelessWidget {
     required this.index,
     required this.t,
   });
+
   final AppTheme theme;
   final double index;
   final double t;
@@ -762,8 +763,11 @@ class _HourlyTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(hour, style: TextStyle(color: theme.sub, fontSize: 12)),
-          Icon(rainy ? Icons.beach_access : Icons.cloud,
-              color: theme.text, size: 20),
+          Icon(
+            rainy ? Icons.beach_access : Icons.cloud,
+            color: theme.text,
+            size: 20,
+          ),
           Text(
             "$temp°",
             style: TextStyle(
@@ -777,10 +781,7 @@ class _HourlyTile extends StatelessWidget {
             children: [
               Icon(Icons.water_drop, size: 12, color: theme.sub),
               const SizedBox(width: 4),
-              Text(
-                "$rain%",
-                style: TextStyle(color: theme.sub, fontSize: 12),
-              ),
+              Text("$rain%", style: TextStyle(color: theme.sub, fontSize: 12)),
             ],
           ),
         ],
@@ -788,15 +789,6 @@ class _HourlyTile extends StatelessWidget {
     );
   }
 }
-
-// ... (Aşağıdaki widget’ların geri kalanı senin kodunla aynı)
-// _FiveDayCard, _DayRow, _MetricCard, _MetricAqi, _RingGauge,
-// _AveragesPreview, _WindCompact, _WindMeta, _KeyRow,
-// _WindCompass, _CompassPainter, _PrecipTile, _WindMapCard
-// _BottomActions, _RoundAction, _PagerDots, _SectionLabel, _NoGlowScroll
-
-// ✅ Senin dosyada kalan kısmı değiştirmene gerek yok.
-// Buradan aşağısı sende zaten olduğu gibi kalabilir.
 
 class _FiveDayCard extends StatelessWidget {
   const _FiveDayCard({required this.theme});
@@ -807,7 +799,13 @@ class _FiveDayCard extends StatelessWidget {
     final days = [
       _DayRow(theme: theme, day: "Wed", hi: 19, lo: 12, icon: Icons.cloud),
       _DayRow(theme: theme, day: "Thu", hi: 18, lo: 11, icon: Icons.cloud),
-      _DayRow(theme: theme, day: "Fri", hi: 16, lo: 10, icon: Icons.beach_access),
+      _DayRow(
+        theme: theme,
+        day: "Fri",
+        hi: 16,
+        lo: 10,
+        icon: Icons.beach_access,
+      ),
       _DayRow(theme: theme, day: "Sat", hi: 14, lo: 9, icon: Icons.cloud_queue),
       _DayRow(
         theme: theme,
@@ -871,10 +869,7 @@ class _DayRow extends StatelessWidget {
             width: 52,
             child: Text(day, style: TextStyle(color: theme.text)),
           ),
-          SizedBox(
-            width: 26,
-            child: Icon(icon, color: theme.text, size: 18),
-          ),
+          SizedBox(width: 26, child: Icon(icon, color: theme.text, size: 18)),
           SizedBox(
             width: 170,
             child: Stack(
@@ -905,6 +900,446 @@ class _DayRow extends StatelessWidget {
               textAlign: TextAlign.end,
               style: TextStyle(color: theme.sub),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.theme,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.icon,
+  });
+
+  final AppTheme theme;
+  final String title;
+  final String value;
+  final String caption;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel(theme: theme, icon: icon, title: title),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: theme.text,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(caption, style: TextStyle(color: theme.sub, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricAqi extends StatelessWidget {
+  const _MetricAqi({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    const aqi = 42;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel(theme: theme, icon: Icons.blur_on, title: "AIR QUALITY"),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(40, 40),
+                painter: _RingGauge(theme: theme, percent: 0.22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "AQI $aqi • Good",
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Air quality is satisfying and poses little or no risk.",
+            style: TextStyle(color: theme.sub, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RingGauge extends CustomPainter {
+  _RingGauge({required this.theme, required this.percent});
+  final AppTheme theme;
+  final double percent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+
+    final base = Paint()
+      ..color = theme.cardAlt
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    final fg = Paint()
+      ..shader = SweepGradient(
+        colors: [theme.accent, theme.accent.withValues(alpha: 0.6)],
+      ).createShader(Rect.fromCircle(center: c, radius: r))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(c, r - 3, base);
+
+    final sweep = 2 * math.pi * percent;
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r - 3),
+      -math.pi / 2,
+      sweep,
+      false,
+      fg,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingGauge oldDelegate) =>
+      oldDelegate.percent != percent || oldDelegate.theme != theme;
+}
+
+class _AveragesPreview extends StatelessWidget {
+  const _AveragesPreview({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.show_chart_rounded, color: theme.accent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "DAILY AVERAGE",
+                  style: TextStyle(
+                    color: theme.sub,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Today’s high is 6° above normal (21° vs 15°).",
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "+6°",
+            style: TextStyle(
+              color: theme.sunny,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WindCompact extends StatelessWidget {
+  const _WindCompact({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(child: _WindMeta(theme: theme)),
+          const SizedBox(width: 8),
+          _WindCompass(theme: theme),
+        ],
+      ),
+    );
+  }
+}
+
+class _WindMeta extends StatelessWidget {
+  const _WindMeta({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel(theme: theme, icon: Icons.air_rounded, title: "WIND"),
+        const SizedBox(height: 6),
+        _KeyRow(theme: theme, k: "Speed", v: "13 km/h"),
+        _KeyRow(theme: theme, k: "Gusts", v: "30 km/h"),
+        _KeyRow(theme: theme, k: "Direction", v: "53° NE"),
+      ],
+    );
+  }
+}
+
+class _KeyRow extends StatelessWidget {
+  const _KeyRow({required this.theme, required this.k, required this.v});
+  final AppTheme theme;
+  final String k;
+  final String v;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(width: 86, child: Text(k, style: TextStyle(color: theme.sub))),
+          Text(v, style: TextStyle(color: theme.text)),
+        ],
+      ),
+    );
+  }
+}
+
+class _WindCompass extends StatelessWidget {
+  const _WindCompass({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(size: const Size(92, 92), painter: _CompassPainter(theme)),
+          Text(
+            "13\nkm/h",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.text,
+              fontSize: 12,
+              height: 1.1,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompassPainter extends CustomPainter {
+  _CompassPainter(this.theme);
+  final AppTheme theme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2 - 4;
+
+    final bg = Paint()..color = theme.cardAlt;
+    final border = Paint()
+      ..color = theme.border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(c, r, bg);
+    canvas.drawCircle(c, r, border);
+
+    final tick = Paint()
+      ..color = theme.sub
+      ..strokeWidth = 2;
+    canvas.drawLine(
+      Offset(c.dx, c.dy - r),
+      Offset(c.dx, c.dy - r + 8),
+      tick,
+    );
+
+    final double angle = -45 * math.pi / 180;
+    final double ux = math.cos(angle);
+    final double uy = math.sin(angle);
+
+    final double startR = r * 0.34;
+    final double baseR = r * 0.66;
+    final double tipR = r * 0.80;
+
+    final Offset start = Offset(c.dx + startR * ux, c.dy + startR * uy);
+    final Offset base = Offset(c.dx + baseR * ux, c.dy + baseR * uy);
+    final Offset tip = Offset(c.dx + tipR * ux, c.dy + tipR * uy);
+
+    final Paint shaft = Paint()
+      ..color = theme.accent
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(start, base, shaft);
+
+    const double headLen = 8;
+    const double headWidth = 7;
+    final Offset headBase = Offset(
+      tip.dx - ux * headLen,
+      tip.dy - uy * headLen,
+    );
+    final double px = -uy, py = ux;
+
+    final Offset p1 = tip;
+    final Offset p2 = Offset(
+      headBase.dx + px * (headWidth / 2),
+      headBase.dy + py * (headWidth / 2),
+    );
+    final Offset p3 = Offset(
+      headBase.dx - px * (headWidth / 2),
+      headBase.dy - py * (headWidth / 2),
+    );
+
+    final Path head = Path()
+      ..moveTo(p1.dx, p1.dy)
+      ..lineTo(p2.dx, p2.dy)
+      ..lineTo(p3.dx, p3.dy)
+      ..close();
+
+    final Paint headPaint = Paint()..color = theme.accent;
+    canvas.drawPath(head, headPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CompassPainter oldDelegate) =>
+      oldDelegate.theme != theme;
+}
+
+class _PrecipTile extends StatelessWidget {
+  const _PrecipTile({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel(
+            theme: theme,
+            icon: Icons.invert_colors,
+            title: "PRECIPITATION",
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.beach_access, color: theme.text),
+              const SizedBox(width: 10),
+              Text(
+                "0 mm today",
+                style: TextStyle(
+                  color: theme.text,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text("Chance: 35%", style: TextStyle(color: theme.sub)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WindMapCard extends StatelessWidget {
+  const _WindMapCard({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel(theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
+          const SizedBox(height: 8),
+          Container(
+            height: 140,
+            decoration: BoxDecoration(
+              color: theme.cardAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.border),
+            ),
+            alignment: Alignment.center,
+            child: Text("Map Placeholder", style: TextStyle(color: theme.sub)),
           ),
         ],
       ),
