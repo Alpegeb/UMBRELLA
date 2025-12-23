@@ -439,6 +439,11 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             ],
                           ),
                         ),
+
+                        // ✅ Step-3 CRUD + realtime section
+                        const SizedBox(height: 10),
+                        _ItemsCard(theme: theme),
+
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () {
@@ -446,8 +451,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    AveragesScreen(appTheme: theme),
+                                builder: (_) => AveragesScreen(appTheme: theme),
                               ),
                             );
                           },
@@ -476,9 +480,8 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => PrecipitationGraphsScreen(
-                                  appTheme: theme,
-                                ),
+                                builder: (_) =>
+                                    PrecipitationGraphsScreen(appTheme: theme),
                               ),
                             );
                           },
@@ -539,12 +542,216 @@ class _MainScreenBodyState extends State<MainScreenBody> {
   }
 }
 
+/// ✅ Firestore Items UI (Add / Edit / Delete) — uses ItemsState (realtime)
+class _ItemsCard extends StatelessWidget {
+  const _ItemsCard({required this.theme});
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ItemsState>(
+      builder: (context, st, _) {
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: theme.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: theme.border),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _SectionLabel(
+                    theme: theme,
+                    icon: Icons.cloud_done,
+                    title: "YOUR ITEMS (FIRESTORE)",
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: "Add",
+                    onPressed: () => _openAddDialog(context),
+                    icon: Icon(Icons.add_circle_outline, color: theme.text),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (st.loading)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(theme.accent),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              else if (st.error != null)
+                Text(st.error!, style: const TextStyle(color: Colors.red))
+              else if (st.items.isEmpty)
+                Text(
+                  "No items yet. Tap + to add one.",
+                  style: TextStyle(color: theme.sub),
+                )
+              else
+                Column(
+                  children: st.items.map((m) {
+                    final id = (m['id'] ?? '').toString();
+                    final title = (m['title'] ?? '').toString();
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.cardAlt,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: theme.border),
+                        ),
+                        child: ListTile(
+                          title: Text(
+                            title,
+                            style: TextStyle(
+                              color: theme.text,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            "Realtime • owned by user",
+                            style: TextStyle(color: theme.sub, fontSize: 12),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: "Edit",
+                                onPressed: () =>
+                                    _openEditDialog(context, id, title),
+                                icon: Icon(Icons.edit, color: theme.text),
+                              ),
+                              IconButton(
+                                tooltip: "Delete",
+                                onPressed: () => st.remove(id),
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openAddDialog(BuildContext context) async {
+    final items = context.read<ItemsState>(); // ✅ async gap öncesi al
+    final ctrl = TextEditingController();
+
+    final ok = await _openTextDialog(
+      context,
+      title: "Add Item",
+      hint: "Title",
+      controller: ctrl,
+      confirmText: "Add",
+    );
+    if (ok != true) return;
+
+    final title = ctrl.text.trim();
+    if (title.isEmpty) return;
+
+    await items.add(title);
+  }
+
+  Future<void> _openEditDialog(
+    BuildContext context,
+    String id,
+    String currentTitle,
+  ) async {
+    final items = context.read<ItemsState>(); // ✅ async gap öncesi al
+    final ctrl = TextEditingController(text: currentTitle);
+
+    final ok = await _openTextDialog(
+      context,
+      title: "Edit Item",
+      hint: "Title",
+      controller: ctrl,
+      confirmText: "Save",
+    );
+    if (ok != true) return;
+
+    final title = ctrl.text.trim();
+    if (title.isEmpty) return;
+
+    await items.update(id, title);
+  }
+
+  Future<bool?> _openTextDialog(
+    BuildContext context, {
+    required String title,
+    required String hint,
+    required TextEditingController controller,
+    required String confirmText,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final bg = Theme.of(ctx).scaffoldBackgroundColor;
+        final isDark = bg.computeLuminance() < 0.5;
+        final textColor = isDark ? Colors.white : Colors.black;
+        final subColor = isDark ? Colors.white70 : Colors.black54;
+        final borderColor = isDark ? Colors.white54 : Colors.black45;
+        final primary = Theme.of(ctx).colorScheme.primary;
+
+        InputDecoration deco(String label) => InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(color: subColor),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: borderColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primary, width: 2),
+              ),
+            );
+
+        return AlertDialog(
+          title: Text(title, style: TextStyle(color: textColor)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(color: textColor),
+            decoration: deco(hint),
+            onSubmitted: (_) => Navigator.pop(ctx, true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(confirmText),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _UmbrellaIndexLine extends StatelessWidget {
   const _UmbrellaIndexLine({
     required this.theme,
     required this.index,
     required this.t,
   });
+
   final AppTheme theme;
   final double index;
   final double t;
@@ -573,12 +780,12 @@ class _UmbrellaIndexLine extends StatelessWidget {
         border: Border.all(color: theme.border.withValues(alpha: borderA)),
         boxShadow: bgA > 0.01
             ? [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          )
-        ]
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                )
+              ]
             : null,
       ),
       child: Column(
@@ -619,7 +826,7 @@ class _UmbrellaIndexLine extends StatelessWidget {
                 final dotSize = barHeight;
                 final centerX = (clamped / 10.0) * (w - 1);
                 final left =
-                (centerX - dotSize / 2).clamp(0.0, w - dotSize);
+                    (centerX - dotSize / 2).clamp(0.0, w - dotSize);
 
                 return Stack(
                   children: [
@@ -654,18 +861,17 @@ class _UmbrellaIndexLine extends StatelessWidget {
               },
             ),
           ),
-          if (fade > 0.01)
-            ...[
-              const SizedBox(height: 6),
-              Opacity(
-                opacity: fade,
-                child: Text(
-                  _caption(clamped),
-                  style: TextStyle(color: theme.sub, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
+          if (fade > 0.01) ...[
+            const SizedBox(height: 6),
+            Opacity(
+              opacity: fade,
+              child: Text(
+                _caption(clamped),
+                style: TextStyle(color: theme.sub, fontSize: 12),
+                textAlign: TextAlign.center,
               ),
-            ],
+            ),
+          ],
         ],
       ),
     );
@@ -1039,10 +1245,7 @@ class _DayRow extends StatelessWidget {
             width: 52,
             child: Text(day, style: TextStyle(color: theme.text)),
           ),
-          SizedBox(
-            width: 26,
-            child: Icon(icon, color: theme.text, size: 18),
-          ),
+          SizedBox(width: 26, child: Icon(icon, color: theme.text, size: 18)),
           SizedBox(
             width: 170,
             child: Stack(
@@ -1159,11 +1362,7 @@ class _MetricAqi extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel(
-            theme: theme,
-            icon: Icons.blur_on,
-            title: "AIR QUALITY",
-          ),
+          _SectionLabel(theme: theme, icon: Icons.blur_on, title: "AIR QUALITY"),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -1233,10 +1432,7 @@ class _RingGauge extends CustomPainter {
 
     final fg = Paint()
       ..shader = SweepGradient(
-        colors: [
-          theme.accent,
-          theme.accent.withValues(alpha: 0.6),
-        ],
+        colors: [theme.accent, theme.accent.withValues(alpha: 0.6)],
       ).createShader(Rect.fromCircle(center: c, radius: r))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
@@ -1408,11 +1604,7 @@ class _WindMeta extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionLabel(
-          theme: theme,
-          icon: Icons.air_rounded,
-          title: "WIND",
-        ),
+        _SectionLabel(theme: theme, icon: Icons.air_rounded, title: "WIND"),
         const SizedBox(height: 6),
         _KeyRow(
           theme: theme,
@@ -1446,10 +1638,7 @@ class _KeyRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          SizedBox(
-            width: 86,
-            child: Text(k, style: TextStyle(color: theme.sub)),
-          ),
+          SizedBox(width: 86, child: Text(k, style: TextStyle(color: theme.sub))),
           Text(v, style: TextStyle(color: theme.text)),
         ],
       ),
@@ -1524,7 +1713,10 @@ class _CompassPainter extends CustomPainter {
       ..color = theme.sub
       ..strokeWidth = 2;
     canvas.drawLine(
-        Offset(c.dx, c.dy - r), Offset(c.dx, c.dy - r + 8), tick);
+      Offset(c.dx, c.dy - r),
+      Offset(c.dx, c.dy - r + 8),
+      tick,
+    );
 
     if (windDirectionDegrees == null) return;
 
@@ -1553,6 +1745,7 @@ class _CompassPainter extends CustomPainter {
       tip.dy - uy * headLen,
     );
     final double px = -uy, py = ux;
+
     final Offset p1 = tip;
     final Offset p2 = Offset(
       headBase.dx + px * (headWidth / 2),
@@ -1568,6 +1761,7 @@ class _CompassPainter extends CustomPainter {
       ..lineTo(p2.dx, p2.dy)
       ..lineTo(p3.dx, p3.dy)
       ..close();
+
     final Paint headPaint = Paint()..color = theme.accent;
     canvas.drawPath(head, headPaint);
   }
@@ -1612,7 +1806,10 @@ class _PrecipTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel(
-              theme: theme, icon: Icons.invert_colors, title: "PRECIPITATION"),
+            theme: theme,
+            icon: Icons.invert_colors,
+            title: "PRECIPITATION",
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1673,8 +1870,7 @@ class _WindMapCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel(
-              theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
+          _SectionLabel(theme: theme, icon: Icons.map_rounded, title: "WIND MAP"),
           const SizedBox(height: 8),
           Container(
             height: 140,
@@ -1973,7 +2169,10 @@ class _NoGlowScroll extends ScrollBehavior {
 
   @override
   Widget buildOverscrollIndicator(
-      BuildContext context, Widget child, ScrollableDetails details) {
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return child;
   }
 }
