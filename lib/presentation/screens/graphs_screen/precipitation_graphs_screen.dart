@@ -209,11 +209,9 @@ class _PrecipitationCardState extends State<_PrecipitationCard> {
                     final pastIndex = _lastPastIndex(times, DateTime.now());
                     final currentIndex =
                         _currentIndex(times, DateTime.now());
-                    final activeIndex = (_activeIndex ?? currentIndex) == null
-                        ? null
-                        : (_activeIndex ?? currentIndex)!
-                            .clamp(0, count - 1)
-                            .toInt();
+                    final resolvedIndex = _activeIndex ?? currentIndex;
+                    final activeIndex =
+                        resolvedIndex?.clamp(0, count - 1).toInt();
 
                     return GestureDetector(
                       onTapDown: (details) => _setActive(

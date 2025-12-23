@@ -1031,7 +1031,7 @@ class WeatherService {
               (entry['code'] as String).toLowerCase() == 'uaqi',
           orElse: () => {},
         );
-    if (selected != null && selected!.isEmpty) {
+    if (selected.isEmpty) {
       selected = null;
     }
     if (selected == null) {

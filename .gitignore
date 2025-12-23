@@ -32,7 +32,6 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-lib/core/weather_secrets.dart
 
 # Symbolication related
 app.*.symbols

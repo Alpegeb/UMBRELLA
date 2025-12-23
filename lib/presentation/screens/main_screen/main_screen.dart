@@ -237,7 +237,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
     final summary =
         showPlaceholder ? "" : summaryText(current, windInKph: windInKph);
     final tempDisplay = tempValue(current.tempC, useCelsius).round();
-    final tempText = showPlaceholder ? "--" : "${tempDisplay}°";
+    final tempText = showPlaceholder ? "--" : "$tempDisplay°";
     final todayHigh = todayRange == null
         ? null
         : tempValue(todayRange.highC, useCelsius).round();
@@ -246,7 +246,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
         : tempValue(todayRange.lowC, useCelsius).round();
     final hiLoText = showPlaceholder || todayRange == null
         ? "H:--  L:--"
-        : "H:${todayHigh}°  L:${todayLow}°";
+        : "H:$todayHigh°  L:$todayLow°";
     final todayHighC = showPlaceholder ? null : todayRange?.highC;
     final avgHighC = showPlaceholder
         ? null
@@ -284,7 +284,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                 },
                 child: _UmbrellaIndexLine(
                   theme: theme,
-                  index: umbrella!,
+                  index: umbrella,
                   t: _t,
                 ),
               ),
@@ -705,6 +705,10 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final airQualityValue = airQuality;
+    final airQualityText = airQualityValue == null
+        ? "AQI --"
+        : "AQI ${airQualityValue.aqi}";
     return Column(
       children: [
         Row(
@@ -759,7 +763,7 @@ class _Header extends StatelessWidget {
             const Spacer(),
             _Chip(
               theme: theme,
-              text: airQuality == null ? "AQI --" : "AQI ${airQuality!.aqi}",
+              text: airQualityText,
               icon: Icons.blur_on,
             ),
           ],
@@ -769,54 +773,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _FallbackHeader extends StatelessWidget {
-  const _FallbackHeader({
-    required this.theme,
-    required this.locationName,
-    required this.statusText,
-  });
-
-  final AppTheme theme;
-  final String locationName;
-  final String statusText;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(Icons.place_outlined, size: 18, color: theme.sub),
-            const SizedBox(width: 6),
-            Text(
-              locationName,
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const Spacer(),
-            _Chip(
-              theme: theme,
-              text: "Offline",
-              icon: Icons.cloud_off,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          statusText,
-          style: TextStyle(
-            color: theme.sub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _Chip extends StatelessWidget {
   const _Chip({required this.theme, required this.text, required this.icon});

@@ -220,7 +220,6 @@ class _TileGrid extends StatelessWidget {
         return 'https://server.arcgisonline.com/ArcGIS/rest/services/'
             'World_Imagery/MapServer/tile/$zoom/$y/$x';
       case WindMapLayer.standard:
-      default:
         return 'https://tile.openstreetmap.org/$zoom/$x/$y.png';
     }
   }

@@ -100,10 +100,10 @@ String skyInsightText(String condition) {
 String humidityInsightText(double? humidity) {
   if (humidity == null) return 'Humidity data is unavailable right now.';
   final pct = (humidity * 100).round();
-  if (pct < 35) return 'Dry air (${pct}%). Keep skin hydrated.';
-  if (pct < 60) return 'Comfortable humidity (${pct}%).';
-  if (pct < 80) return 'Humid air (${pct}%). Stay cool.';
-  return 'Very humid (${pct}%). Take it easy outdoors.';
+  if (pct < 35) return 'Dry air ($pct%). Keep skin hydrated.';
+  if (pct < 60) return 'Comfortable humidity ($pct%).';
+  if (pct < 80) return 'Humid air ($pct%). Stay cool.';
+  return 'Very humid ($pct%). Take it easy outdoors.';
 }
 
 DailyWeather? dailyForDate(List<DailyWeather> daily, DateTime date) {

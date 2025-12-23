@@ -315,8 +315,9 @@ class _LocationsViewState extends State<LocationsView> {
         _suggestions = [];
       });
     } finally {
-      if (!mounted || _query.trim() != query) return;
-      setState(() => _searching = false);
+      if (mounted && _query.trim() == query) {
+        setState(() => _searching = false);
+      }
     }
   }
 
@@ -403,7 +404,7 @@ class _LocationsViewState extends State<LocationsView> {
   Widget _buildEditList(WeatherState weather, SettingsState settings) {
     final theme = widget.theme;
     final locations = weather.locations;
-    final savedCount = locations.length > 0 ? locations.length - 1 : 0;
+    final savedCount = locations.isNotEmpty ? locations.length - 1 : 0;
 
     if (locations.isEmpty) {
       return Center(
@@ -759,19 +760,23 @@ class _LocationCard extends StatelessWidget {
     final range = highLowForDate(daily, snapshot.hourly, DateTime.now());
     final temp = tempValue(current.tempC, useCelsius).round();
     final hasRange = range != null;
-    final hi = hasRange ? tempValue(range!.highC, useCelsius).round() : null;
-    final lo = hasRange ? tempValue(range!.lowC, useCelsius).round() : null;
+    final hi = range == null
+        ? null
+        : tempValue(range.highC, useCelsius).round();
+    final lo = range == null
+        ? null
+        : tempValue(range.lowC, useCelsius).round();
     final subtitle = location.subtitle.isNotEmpty
         ? location.subtitle
         : (location.isDevice ? "My Location" : "Saved location");
     final condition = displayCondition(current.condition);
     final hasError = errorMessage != null && snapshot.isFallback;
     final showPlaceholder = snapshot.isFallback;
-    final tempText = showPlaceholder ? "--" : "${temp}°";
+    final tempText = showPlaceholder ? "--" : "$temp°";
     final conditionText =
         showPlaceholder ? (hasError ? "Weather unavailable" : "--") : condition;
     final hiLoText =
-        showPlaceholder || !hasRange ? "H:-- L:--" : "H:${hi}° L:${lo}°";
+        showPlaceholder || !hasRange ? "H:-- L:--" : "H:$hi° L:$lo°";
 
     final content = Container(
         padding: const EdgeInsets.all(16),
