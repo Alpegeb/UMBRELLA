@@ -26,10 +26,8 @@ class FirestoreService {
   }
 
   // ✅ Step-3 UPDATE
-  Future<void> updateItem(String uid, String id, String title) async {
-    await _col(uid).doc(id).update({
-      'title': title,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
+Future<void> update(String id, String title) async {
+  final uid = _user?.uid;
+  if (uid == null) return;
+  await _svc.updateItem(uid, id, title); // ✅ positional
 }
