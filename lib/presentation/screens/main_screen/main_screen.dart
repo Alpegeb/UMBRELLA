@@ -1437,7 +1437,7 @@ class _WindMeta extends StatelessWidget {
         : _windFlowDegrees(windDirectionDegrees!);
     final directionText = flowDegrees == null
         ? "--"
-        : "${flowDegrees}° ${windDirectionLabel(flowDegrees)}";
+        : "$flowDegrees° ${windDirectionLabel(flowDegrees)}";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
