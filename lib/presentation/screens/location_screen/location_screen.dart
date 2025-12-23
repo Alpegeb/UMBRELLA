@@ -1,163 +1,562 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
+import '../../../providers/settings_state.dart';
+import '../../../providers/weather_state.dart';
+import '../../../services/places_service.dart';
+import '../../../services/weather_models.dart';
+import '../../../services/weather_utils.dart';
+import '../../../services/weather_units.dart';
 
-class CityData {
-  final String name;
-  final String subtitle;
-  final String condition;
-  final int temp;
-  final int hi;
-  final int lo;
-
-  const CityData({
-    required this.name,
-    required this.subtitle,
-    required this.condition,
-    required this.temp,
-    required this.hi,
-    required this.lo,
-  });
-}
-
-final _mockCities = [
-  const CityData(
-      name: "Istanbul",
-      subtitle: "My Location • Home",
-      condition: "Cloudy",
-      temp: 15,
-      hi: 19,
-      lo: 15),
-  const CityData(
-      name: "Ankara",
-      subtitle: "23:51",
-      condition: "Mostly Cloudy",
-      temp: 11,
-      hi: 20,
-      lo: 6),
-  const CityData(
-      name: "Marmaris",
-      subtitle: "23:51",
-      condition: "Partly Cloudy",
-      temp: 18,
-      hi: 25,
-      lo: 15),
-  const CityData(
-      name: "Türkbükü",
-      subtitle: "23:51",
-      condition: "Mostly Cloudy",
-      temp: 18,
-      hi: 24,
-      lo: 16),
-  const CityData(
-      name: "Midilli",
-      subtitle: "22:51",
-      condition: "Cloudy",
-      temp: 15,
-      hi: 19,
-      lo: 13),
-];
-
-class LocationScreen extends StatefulWidget {
+class LocationScreen extends StatelessWidget {
   const LocationScreen({super.key, required this.theme});
 
   final AppTheme theme;
 
   @override
-  State<LocationScreen> createState() => _LocationScreenState();
-}
-
-class _LocationScreenState extends State<LocationScreen> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = "";
-
-  List<CityData> get _filtered {
-    if (_query.trim().isEmpty) return _mockCities;
-    final q = _query.toLowerCase();
-    return _mockCities.where((c) {
-      return c.name.toLowerCase().contains(q) ||
-          c.subtitle.toLowerCase().contains(q) ||
-          c.condition.toLowerCase().contains(q);
-    }).toList();
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = widget.theme;
-    final results = _filtered;
-    final trimmedQuery = _query.trim();
-
     return Scaffold(
       backgroundColor: theme.bg,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          child: Column(
-            children: [
-              _TopBar(theme: theme),
-              const SizedBox(height: 16),
-              _SearchBar(
-                theme: theme,
-                controller: _searchCtrl,
-                onChanged: (v) => setState(() => _query = v),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: results.isEmpty
-                    ? Center(
-                  child: Text(
-                    // New explicit error message
-                    trimmedQuery.isEmpty
-                        ? "No locations available."
-                        : 'City "$trimmedQuery" not found.',
-                    style: TextStyle(
-                      color: theme.sub,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-                    : ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  itemCount: results.length,
-                  separatorBuilder: (_, __) =>
-                  const SizedBox(height: 10),
-                  itemBuilder: (_, i) =>
-                      _CityCard(theme: theme, city: results[i]),
-                ),
-              ),
-            ],
-          ),
+        child: LocationsView(
+          theme: theme,
+          showBackButton: true,
+          onSelectIndex: (index) {
+            context.read<WeatherState>().setActiveIndex(index);
+            Navigator.of(context).maybePop();
+          },
         ),
       ),
     );
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.theme});
+class LocationsView extends StatefulWidget {
+  const LocationsView({
+    super.key,
+    required this.theme,
+    required this.onSelectIndex,
+    this.showBackButton = true,
+  });
+
   final AppTheme theme;
+  final ValueChanged<int> onSelectIndex;
+  final bool showBackButton;
+
+  @override
+  State<LocationsView> createState() => _LocationsViewState();
+}
+
+class _LocationsViewState extends State<LocationsView> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final PlacesService _places = PlacesService();
+  Timer? _debounce;
+  String _query = "";
+  bool _searching = false;
+  String? _searchError;
+  String? _addingPlaceId;
+  List<PlaceSuggestion> _suggestions = [];
+  bool _editing = false;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<int> _filteredIndices(WeatherState weather) {
+    final q = _query.trim().toLowerCase();
+    final indices = List<int>.generate(weather.locations.length, (i) => i);
+    if (q.isEmpty) return indices;
+    final filtered = indices.where((i) {
+      final loc = weather.locations[i];
+      final snap = weather.snapshotForIndex(i);
+      return loc.name.toLowerCase().contains(q) ||
+          loc.subtitle.toLowerCase().contains(q) ||
+          snap.current.condition.toLowerCase().contains(q);
+    }).toList();
+    filtered.sort();
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final weather = context.watch<WeatherState>();
+    final settings = context.watch<SettingsState>();
+    final isOffline = weather.isOffline;
+    final results = _filteredIndices(weather);
+    final trimmedQuery = _query.trim();
+    final hasQuery = trimmedQuery.isNotEmpty;
+    final deviceLocation =
+        weather.locations.isNotEmpty ? weather.locations.first : null;
+
+    final List<Widget> items = [];
+    void addItem(Widget widget) {
+      if (items.isNotEmpty) items.add(const SizedBox(height: 10));
+      items.add(widget);
+    }
+    void addSectionHeader(String text) {
+      if (items.isNotEmpty) items.add(const SizedBox(height: 14));
+      items.add(_SectionHeader(theme: theme, text: text));
+      items.add(const SizedBox(height: 8));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        children: [
+          _TopBar(
+            theme: theme,
+            showBackButton: widget.showBackButton,
+            isEditing: _editing,
+            onToggleEdit: _toggleEditing,
+          ),
+          const SizedBox(height: 16),
+          _SearchBar(
+            theme: theme,
+            controller: _searchCtrl,
+            onChanged: (v) => _onQueryChanged(v, deviceLocation, isOffline),
+            enabled: !_editing && !isOffline,
+          ),
+          if (isOffline && !_editing)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: _StatusLine(
+                theme: theme,
+                text: 'Connect to the internet to search places.',
+              ),
+            ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _editing
+                ? _buildEditList(weather, settings)
+                : Builder(
+                    builder: (context) {
+                      if (results.isEmpty && !hasQuery) {
+                        return Center(
+                          child: Text(
+                            "No locations available.",
+                            style: TextStyle(
+                              color: theme.sub,
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+
+                      if (results.isNotEmpty) {
+                        addSectionHeader('Saved Locations');
+                        for (final index in results) {
+                          final location = weather.locations[index];
+                          final snapshot = weather.snapshotForIndex(index);
+                          final errorMessage = weather.errorForIndex(index);
+                          addItem(
+                            _LocationCard(
+                              theme: theme,
+                              location: location,
+                              snapshot: snapshot,
+                              useCelsius: settings.useCelsius,
+                              isActive: index == weather.activeIndex,
+                              errorMessage: errorMessage,
+                              showEditActions: false,
+                              reorderIndex: null,
+                              onRemove: null,
+                              onTap: () => widget.onSelectIndex(index),
+                            ),
+                          );
+                        }
+                      }
+
+                      if (hasQuery) {
+                        addSectionHeader('Search Results');
+                        if (isOffline) {
+                          addItem(
+                            _StatusLine(
+                              theme: theme,
+                              text:
+                                  'Connect to the internet to search places.',
+                            ),
+                          );
+                        } else if (_searching) {
+                          addItem(
+                            _StatusLine(
+                              theme: theme,
+                              text: 'Searching places...',
+                            ),
+                          );
+                        } else if (_searchError != null) {
+                          addItem(
+                            _StatusLine(
+                              theme: theme,
+                              text: _searchError!,
+                            ),
+                          );
+                        } else if (_suggestions.isEmpty) {
+                          addItem(
+                            _StatusLine(
+                              theme: theme,
+                              text: 'No places found for "$trimmedQuery".',
+                            ),
+                          );
+                        } else {
+                          for (final suggestion in _suggestions) {
+                            final adding = _addingPlaceId == suggestion.placeId;
+                            addItem(
+                              _PlaceResultTile(
+                                theme: theme,
+                                suggestion: suggestion,
+                                loading: adding,
+                                onTap: adding
+                                    ? null
+                                    : () => _selectSuggestion(
+                                          suggestion,
+                                          context.read<WeatherState>(),
+                                        ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+
+                      return ListView(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        children: items,
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onQueryChanged(
+    String value,
+    WeatherLocation? deviceLocation,
+    bool isOffline,
+  ) {
+    setState(() {
+      _query = value;
+      _searchError = null;
+    });
+    _debounce?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.length < 2) {
+      setState(() {
+        _searching = false;
+        _suggestions = [];
+      });
+      return;
+    }
+    if (isOffline) {
+      setState(() {
+        _searching = false;
+        _suggestions = [];
+        _searchError = 'Connect to the internet to search places.';
+      });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      _searchPlaces(trimmed, deviceLocation);
+    });
+  }
+
+  void _toggleEditing() {
+    setState(() {
+      _editing = !_editing;
+      if (_editing) {
+        _searchCtrl.clear();
+        _query = '';
+        _searchError = null;
+        _suggestions = [];
+      }
+    });
+  }
+
+  Future<void> _searchPlaces(
+    String query,
+    WeatherLocation? deviceLocation,
+  ) async {
+    if (!mounted) return;
+    if (context.read<WeatherState>().isOffline) {
+      setState(() {
+        _searching = false;
+        _searchError = 'Connect to the internet to search places.';
+        _suggestions = [];
+      });
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _searchError = null;
+    });
+    try {
+      final results = await _places.autocomplete(
+        query,
+        latitude: deviceLocation?.latitude,
+        longitude: deviceLocation?.longitude,
+      );
+      if (!mounted || _query.trim() != query) return;
+      setState(() {
+        _suggestions = results;
+      });
+    } catch (e) {
+      if (!mounted || _query.trim() != query) return;
+      final message = e is PlacesApiException
+          ? e.message
+          : 'Unable to search places.';
+      setState(() {
+        _searchError = message;
+        _suggestions = [];
+      });
+    } finally {
+      if (mounted && _query.trim() == query) {
+        setState(() => _searching = false);
+      }
+    }
+  }
+
+  Future<void> _selectSuggestion(
+    PlaceSuggestion suggestion,
+    WeatherState weather,
+  ) async {
+    setState(() => _addingPlaceId = suggestion.placeId);
+    try {
+      PlaceDetails details;
+      try {
+        details = await _places.fetchDetails(suggestion.placeId);
+      } catch (e) {
+        if (!mounted) return;
+        final message = e is PlacesApiException
+            ? e.message
+            : 'Unable to add that location.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+        return;
+      }
+
+      final location = WeatherLocation(
+        name: details.name,
+        subtitle: details.address ?? suggestion.secondaryText,
+        latitude: details.latitude,
+        longitude: details.longitude,
+        placeId: details.placeId,
+      );
+      int index;
+      try {
+        index = await weather.addLocation(location);
+      } catch (e) {
+        if (!mounted) return;
+        final message = e is PlacesApiException
+            ? e.message
+            : 'Unable to add that location.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+        return;
+      }
+      if (!mounted) return;
+      widget.onSelectIndex(index);
+      if (!mounted) return;
+      _searchCtrl.clear();
+      setState(() {
+        _query = '';
+        _suggestions = [];
+        _searching = false;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _addingPlaceId = null);
+      }
+    }
+  }
+
+  Future<void> _removeLocation(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remove location?'),
+          content: const Text('This location will be removed from your list.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    await context.read<WeatherState>().removeLocation(index);
+  }
+
+  Widget _buildEditList(WeatherState weather, SettingsState settings) {
+    final theme = widget.theme;
+    final locations = weather.locations;
+    final savedCount = locations.isNotEmpty ? locations.length - 1 : 0;
+
+    if (locations.isEmpty) {
+      return Center(
+        child: Text(
+          "No locations available.",
+          style: TextStyle(
+            color: theme.sub,
+            fontSize: 14,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    final deviceLocation = locations.first;
+    final deviceSnapshot = weather.snapshotForIndex(0);
+
+    return Column(
+      children: [
+        _LocationCard(
+          theme: theme,
+          location: deviceLocation,
+          snapshot: deviceSnapshot,
+          useCelsius: settings.useCelsius,
+          isActive: weather.activeIndex == 0,
+          errorMessage: weather.errorForIndex(0),
+          showEditActions: false,
+          reorderIndex: null,
+          onRemove: null,
+          onTap: () => widget.onSelectIndex(0),
+        ),
+        const SizedBox(height: 10),
+        if (savedCount == 0)
+          Expanded(
+            child: Center(
+              child: Text(
+                "No saved locations to edit.",
+                style: TextStyle(
+                  color: theme.sub,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ReorderableListView(
+              buildDefaultDragHandles: false,
+              padding: const EdgeInsets.only(bottom: 20),
+              onReorder: (oldIndex, newIndex) =>
+                  _reorderSaved(oldIndex, newIndex, weather),
+              children: List.generate(savedCount, (i) {
+                final index = i + 1;
+                final location = locations[index];
+                final snapshot = weather.snapshotForIndex(index);
+                return Padding(
+                  key: ValueKey('${location.placeId ?? location.name}_$index'),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _LocationCard(
+                    theme: theme,
+                    location: location,
+                    snapshot: snapshot,
+                    useCelsius: settings.useCelsius,
+                    isActive: weather.activeIndex == index,
+                    errorMessage: weather.errorForIndex(index),
+                    showEditActions: true,
+                    reorderIndex: i,
+                    onRemove: () => _removeLocation(index),
+                    onTap: null,
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _reorderSaved(int oldIndex, int newIndex, WeatherState weather) {
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (newIndex < 0) return;
+    weather.moveLocation(oldIndex + 1, newIndex + 1);
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.theme,
+    required this.showBackButton,
+    required this.isEditing,
+    required this.onToggleEdit,
+  });
+
+  final AppTheme theme;
+  final bool showBackButton;
+  final bool isEditing;
+  final VoidCallback onToggleEdit;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: theme.text),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        const SizedBox(width: 4),
+        if (showBackButton)
+          IconButton(
+            icon: Icon(Icons.arrow_back_ios_new, color: theme.text),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        if (showBackButton) const SizedBox(width: 4),
         Text(
           "Locations",
           style: TextStyle(
             color: theme.text,
             fontSize: 26,
             fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        Tooltip(
+          message: isEditing ? "Done" : "Edit",
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onToggleEdit,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.cardAlt,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: theme.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.edit_outlined,
+                    color: isEditing ? theme.accent : theme.sub,
+                    size: 20,
+                  ),
+                  if (isEditing) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      "Done",
+                      style: TextStyle(
+                        color: theme.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -170,11 +569,13 @@ class _SearchBar extends StatelessWidget {
     required this.theme,
     required this.controller,
     required this.onChanged,
+    required this.enabled,
   });
 
   final AppTheme theme;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -193,6 +594,7 @@ class _SearchBar extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
+              enabled: enabled,
               style: TextStyle(color: theme.text),
               decoration: InputDecoration(
                 hintText: "Search for a city or airport",
@@ -207,66 +609,295 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _CityCard extends StatelessWidget {
-  const _CityCard({required this.theme, required this.city});
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.theme, required this.text});
+
   final AppTheme theme;
-  final CityData city;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          text,
+          style: TextStyle(
+            color: theme.sub,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.theme, required this.text});
+
+  final AppTheme theme;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.border),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: theme.sub,
+          fontSize: 13,
+        ),
+        textAlign: TextAlign.center,
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Column(
+    );
+  }
+}
+
+class _PlaceResultTile extends StatelessWidget {
+  const _PlaceResultTile({
+    required this.theme,
+    required this.suggestion,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final AppTheme theme;
+  final PlaceSuggestion suggestion;
+  final bool loading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.cardAlt,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.place_outlined, color: theme.sub),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    city.name,
+                    suggestion.primaryText,
                     style: TextStyle(
                       color: theme.text,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    city.subtitle,
-                    style: TextStyle(color: theme.sub),
-                  ),
+                  if (suggestion.secondaryText.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        suggestion.secondaryText,
+                        style: TextStyle(
+                          color: theme.sub,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              const Spacer(),
-              Text(
-                "${city.temp}°",
-                style: TextStyle(
-                  color: theme.text,
-                  fontSize: 48,
-                  fontWeight: FontWeight.w600,
+            ),
+            const SizedBox(width: 8),
+            if (loading)
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.accent,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(city.condition, style: TextStyle(color: theme.text)),
-              const Spacer(),
-              Text(
-                "H:${city.hi}° L:${city.lo}°",
-                style: TextStyle(color: theme.text),
-              ),
-            ],
-          ),
-        ],
+              )
+            else
+              Icon(Icons.add_circle_outline, color: theme.accent),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({
+    required this.theme,
+    required this.location,
+    required this.snapshot,
+    required this.useCelsius,
+    required this.isActive,
+    required this.errorMessage,
+    required this.showEditActions,
+    required this.reorderIndex,
+    required this.onRemove,
+    required this.onTap,
+  });
+
+  final AppTheme theme;
+  final WeatherLocation location;
+  final WeatherSnapshot snapshot;
+  final bool useCelsius;
+  final bool isActive;
+  final String? errorMessage;
+  final bool showEditActions;
+  final int? reorderIndex;
+  final VoidCallback? onRemove;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = snapshot.current;
+    final daily = snapshot.daily;
+    final range = highLowForDate(daily, snapshot.hourly, DateTime.now());
+    final temp = tempValue(current.tempC, useCelsius).round();
+    final hasRange = range != null;
+    final hi = range == null
+        ? null
+        : tempValue(range.highC, useCelsius).round();
+    final lo = range == null
+        ? null
+        : tempValue(range.lowC, useCelsius).round();
+    final subtitle = location.subtitle.isNotEmpty
+        ? location.subtitle
+        : (location.isDevice ? "My Location" : "Saved location");
+    final condition = displayCondition(current.condition);
+    final hasError = errorMessage != null && snapshot.isFallback;
+    final showPlaceholder = snapshot.isFallback;
+    final tempText = showPlaceholder ? "--" : "$temp°";
+    final conditionText =
+        showPlaceholder ? (hasError ? "Weather unavailable" : "--") : condition;
+    final hiLoText =
+        showPlaceholder || !hasRange ? "H:-- L:--" : "H:$hi° L:$lo°";
+
+    final content = Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isActive ? theme.accent : theme.border,
+            width: isActive ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      location.name,
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(color: theme.sub),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (showEditActions)
+                      _EditActions(
+                        theme: theme,
+                        onRemove: onRemove,
+                        reorderIndex: reorderIndex,
+                      ),
+                    Text(
+                      tempText,
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 48,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  conditionText,
+                  style: TextStyle(
+                    color: showPlaceholder ? theme.sub : theme.text,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  hiLoText,
+                  style: TextStyle(
+                    color: showPlaceholder ? theme.sub : theme.text,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+    if (onTap == null) return content;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: content,
+    );
+  }
+}
+
+class _EditActions extends StatelessWidget {
+  const _EditActions({
+    required this.theme,
+    required this.onRemove,
+    required this.reorderIndex,
+  });
+
+  final AppTheme theme;
+  final VoidCallback? onRemove;
+  final int? reorderIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    if (reorderIndex == null) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onRemove,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(Icons.remove_circle_outline,
+                color: theme.sub, size: 18),
+          ),
+        ),
+        ReorderableDragStartListener(
+          index: reorderIndex!,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(Icons.drag_handle, color: theme.sub, size: 18),
+          ),
+        ),
+      ],
     );
   }
 }
