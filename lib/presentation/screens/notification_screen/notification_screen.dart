@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
+import '../../../providers/settings_state.dart';
+import '../../../providers/weather_state.dart';
+import '../../../services/notification_service.dart';
+import '../../../services/weather_models.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({
@@ -14,17 +19,78 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  bool rain = true;
-  bool sunrise = true;
-  bool sunset = true;
-  bool uv = true;
-  bool airQuality = true;
-  bool visibility = true;
-
   AppTheme get theme => widget.appTheme;
 
   @override
+  void initState() {
+    super.initState();
+    NotificationService.instance.requestPermissions();
+  }
+
+  String _locationLabel(WeatherLocation location) {
+    final name = location.name.trim();
+    if (name.isNotEmpty) return name;
+    final subtitle = location.subtitle.trim();
+    if (subtitle.isNotEmpty) return subtitle;
+    return 'Your current location';
+  }
+
+  String _rainPreview(WeatherSnapshot snapshot, String locationLabel) {
+    if (snapshot.isFallback || snapshot.hourly.isEmpty) {
+      return 'Rain outlook is unavailable right now.';
+    }
+    const threshold = 0.4;
+    final now = DateTime.now();
+    HourlyWeather? next;
+    for (final hour in snapshot.hourly) {
+      if (hour.time.isBefore(now)) continue;
+      if (hour.precipProbability >= threshold) {
+        next = hour;
+        break;
+      }
+    }
+    if (next == null) {
+      return 'No rain expected in the next 24 hours.';
+    }
+    final minutes = next.time.difference(now).inMinutes;
+    final roundedHours = (minutes / 60).round().clamp(1, 48).toInt();
+    final hoursLabel = roundedHours == 1 ? '1 hour' : '$roundedHours hours';
+    return 'Rain may be possible in $locationLabel in $hoursLabel — take an umbrella.';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsState>();
+    final weather = context.watch<WeatherState>();
+    final locations = weather.locations;
+    final locationKeys = locations.map((loc) => loc.cacheKey()).toList();
+    var selectedKey = settings.notifyLocationKey;
+    if (selectedKey == null || !locationKeys.contains(selectedKey)) {
+      if (locationKeys.isNotEmpty) {
+        final fallback = locationKeys.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          context.read<SettingsState>().setNotifyLocationKey(fallback);
+        });
+        selectedKey = fallback;
+      }
+    }
+    WeatherLocation? selectedLocation;
+    WeatherSnapshot? selectedSnapshot;
+    if (selectedKey != null) {
+      final index = locationKeys.indexOf(selectedKey);
+      if (index != -1) {
+        selectedLocation = locations[index];
+        selectedSnapshot = weather.snapshotForIndex(index);
+      }
+    }
+    final snapshot = selectedSnapshot ?? weather.snapshot;
+    final locationLabel =
+        _locationLabel(selectedLocation ?? snapshot.location);
+    final rainPreview = settings.notifyRain
+        ? _rainPreview(snapshot, locationLabel)
+        : 'Rain alerts are off.';
+
     return Scaffold(
       backgroundColor: theme.bg,
       appBar: AppBar(
@@ -59,22 +125,58 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, color: theme.accent),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Your current location',
-                        style: TextStyle(
-                          color: theme.sub,
-                          fontSize: 14,
-                        ),
-                      ),
+                const SizedBox(height: 12),
+                if (locations.isEmpty)
+                  Text(
+                    'No locations available yet.',
+                    style: TextStyle(
+                      color: theme.sub,
+                      fontSize: 13,
                     ),
-                    Icon(Icons.chevron_right, color: theme.sub),
-                  ],
+                  )
+                else
+                  Column(
+                    children: [
+                      for (int i = 0; i < locations.length; i++) ...[
+                        if (i > 0)
+                          Divider(color: theme.border, height: 16),
+                        _LocationOption(
+                          theme: theme,
+                          title: _locationLabel(locations[i]),
+                          subtitle: locations[i].subtitle,
+                          selected: locationKeys[i] == selectedKey,
+                          onTap: () => context
+                              .read<SettingsState>()
+                              .setNotifyLocationKey(locationKeys[i]),
+                        ),
+                      ],
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _RoundedCard(
+            theme: theme,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Next alert',
+                  style: TextStyle(
+                    color: theme.text,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  rainPreview,
+                  style: TextStyle(
+                    color: theme.sub,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -98,43 +200,43 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   theme: theme,
                   icon: Icons.umbrella_outlined,
                   label: 'Rain probability',
-                  value: rain,
-                  onChanged: (v) => setState(() => rain = v),
+                  value: settings.notifyRain,
+                  onChanged: (v) => settings.setNotifyRain(v),
                 ),
                 _IndicatorRow(
                   theme: theme,
                   icon: Icons.wb_sunny_outlined,
                   label: 'Sunrise',
-                  value: sunrise,
-                  onChanged: (v) => setState(() => sunrise = v),
+                  value: settings.notifySunrise,
+                  onChanged: (v) => settings.setNotifySunrise(v),
                 ),
                 _IndicatorRow(
                   theme: theme,
                   icon: Icons.nightlight_round,
                   label: 'Sunset',
-                  value: sunset,
-                  onChanged: (v) => setState(() => sunset = v),
+                  value: settings.notifySunset,
+                  onChanged: (v) => settings.setNotifySunset(v),
                 ),
                 _IndicatorRow(
                   theme: theme,
                   icon: Icons.wb_incandescent_outlined,
                   label: 'UV index',
-                  value: uv,
-                  onChanged: (v) => setState(() => uv = v),
+                  value: settings.notifyUv,
+                  onChanged: (v) => settings.setNotifyUv(v),
                 ),
                 _IndicatorRow(
                   theme: theme,
                   icon: Icons.air,
                   label: 'Air quality',
-                  value: airQuality,
-                  onChanged: (v) => setState(() => airQuality = v),
+                  value: settings.notifyAirQuality,
+                  onChanged: (v) => settings.setNotifyAirQuality(v),
                 ),
                 _IndicatorRow(
                   theme: theme,
                   icon: Icons.visibility_outlined,
                   label: 'Visibility',
-                  value: visibility,
-                  onChanged: (v) => setState(() => visibility = v),
+                  value: settings.notifyVisibility,
+                  onChanged: (v) => settings.setNotifyVisibility(v),
                 ),
               ],
             ),
@@ -212,6 +314,73 @@ class _IndicatorRow extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _LocationOption extends StatelessWidget {
+  const _LocationOption({
+    required this.theme,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppTheme theme;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedSubtitle = subtitle.trim();
+    final showSubtitle =
+        trimmedSubtitle.isNotEmpty && trimmedSubtitle != title.trim();
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: selected ? theme.accent : theme.sub,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (showSubtitle)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        trimmedSubtitle,
+                        style: TextStyle(
+                          color: theme.sub,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

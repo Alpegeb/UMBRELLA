@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 
 import 'package:umbrella/providers/auth_state.dart';
+import 'package:umbrella/providers/settings_state.dart';
 
 
 class SettingsScreen extends StatefulWidget {
@@ -52,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.appTheme;
+    final c = context.watch<AppTheme>();
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -103,6 +104,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final labelStyle = getLabelStyle();
     final subStyle = getSubStyle();
+    final settings = context.watch<SettingsState>();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -123,8 +125,8 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.umbrella_outlined,
                 title: "Show Umbrella Index",
                 subtitle: "Display the top index bar",
-                value: true,
-                onChanged: (_) {},
+                value: settings.showUmbrellaIndex,
+                onChanged: settings.setShowUmbrellaIndex,
                 labelStyle: labelStyle,
                 subStyle: subStyle,
               ),
@@ -140,8 +142,8 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.thermostat,
                 title: "Temperature in Celsius",
                 subtitle: "Switch to Fahrenheit if disabled",
-                value: true,
-                onChanged: (_) {},
+                value: settings.useCelsius,
+                onChanged: settings.setUseCelsius,
                 labelStyle: labelStyle,
                 subStyle: subStyle,
               ),
@@ -150,8 +152,8 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.air_rounded,
                 title: "Wind in km/h",
                 subtitle: "Switch to mph if disabled",
-                value: true,
-                onChanged: (_) {},
+                value: settings.windInKph,
+                onChanged: settings.setWindInKph,
                 labelStyle: labelStyle,
                 subStyle: subStyle,
               ),

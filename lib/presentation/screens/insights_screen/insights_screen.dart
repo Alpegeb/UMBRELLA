@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
+import '../../../providers/weather_state.dart';
+import '../../../services/weather_utils.dart';
 
 class InsightsScreen extends StatelessWidget {
   const InsightsScreen({super.key, required this.theme});
@@ -7,6 +10,9 @@ class InsightsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final current = context.watch<WeatherState>().snapshot.current;
+    final index = umbrellaIndex(current);
+
     return Scaffold(
       backgroundColor: theme.bg,
       body: SafeArea(
@@ -25,23 +31,21 @@ class InsightsScreen extends StatelessWidget {
                       theme: theme,
                       icon: Icons.masks_rounded,
                       title: "BREATHE EASY",
-                      text:
-                      "Today's air quality is ‘Good’ (AQI 42). Perfect for fresh air or outdoor activities.",
+                      text: humidityInsightText(current.humidity),
                     ),
                     const SizedBox(height: 10),
                     _Insight(
                       theme: theme,
                       icon: Icons.thermostat_rounded,
                       title: "THE SWEET SPOT",
-                      text: "15°C — perfect for a walk or light jog.",
+                      text: temperatureComfortText(current.tempC),
                     ),
                     const SizedBox(height: 10),
                     _Insight(
                       theme: theme,
                       icon: Icons.auto_awesome_rounded,
                       title: "COZY & FOCUSED",
-                      text:
-                      "Cloudy skies reduce glare, improving focus for indoor tasks.",
+                      text: skyInsightText(current.condition),
                     ),
                     const SizedBox(height: 10),
                     _Insight(
@@ -49,7 +53,7 @@ class InsightsScreen extends StatelessWidget {
                       icon: Icons.umbrella_rounded,
                       title: "PLAN AHEAD",
                       text:
-                      "Umbrella Index is 7.3/10. A compact umbrella might help later.",
+                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${index >= 6 ? "A compact umbrella might help later." : "Rain looks unlikely today."}",
                     ),
                   ],
                 ),

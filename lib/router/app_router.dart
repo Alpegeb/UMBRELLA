@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../providers/auth_state.dart';
 import '../providers/items_state.dart';
+import '../providers/settings_state.dart';
+import '../providers/weather_state.dart';
 import '../presentation/screens/auth/auth_gate.dart';
 
 enum ThemePref { light, system, dark }
@@ -36,7 +38,10 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
 
     return MultiProvider(
       providers: [
+        Provider<AppTheme>.value(value: appTheme),
+        ChangeNotifierProvider(create: (_) => SettingsState()),
         ChangeNotifierProvider(create: (_) => AuthState()),
+        ChangeNotifierProvider(create: (_) => WeatherState()),
 
         ChangeNotifierProxyProvider<AuthState, ItemsState>(
           create: (_) => ItemsState(),

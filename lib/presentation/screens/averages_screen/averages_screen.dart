@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
+import '../../../providers/settings_state.dart';
+import '../../../providers/weather_state.dart';
+import '../../../services/weather_models.dart';
+import '../../../services/weather_utils.dart';
+import '../../../services/weather_units.dart';
 
 class _AveragesPalette {
   final Color background;
@@ -87,6 +93,14 @@ class _AveragesScreenState extends State<AveragesScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = _AveragesPalette.fromAppTheme(widget.appTheme);
+    final weather = context.watch<WeatherState>();
+    final settings = context.watch<SettingsState>();
+    final useCelsius = settings.useCelsius;
+    final snapshot = weather.snapshot;
+    final showPlaceholder = snapshot.isFallback;
+    final daily = showPlaceholder
+        ? <DailyWeather>[]
+        : upcomingDaily(snapshot.daily, now: DateTime.now(), maxDays: 12);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -111,9 +125,20 @@ class _AveragesScreenState extends State<AveragesScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                _DailyAverageCard(mode: _currentMode, colors: colors),
+                _DailyAverageCard(
+                  mode: _currentMode,
+                  colors: colors,
+                  daily: daily,
+                  useCelsius: useCelsius,
+                  showPlaceholder: showPlaceholder,
+                ),
                 const SizedBox(height: 12),
-                _MonthlyAverageCard(mode: _currentMode, colors: colors),
+                _MonthlyAverageCard(
+                  mode: _currentMode,
+                  colors: colors,
+                  daily: daily,
+                  useCelsius: useCelsius,
+                ),
                 const SizedBox(height: 34),
               ],
             ),
@@ -227,33 +252,92 @@ class _CustomSegmentedControl extends StatelessWidget {
 class _DailyAverageCard extends StatelessWidget {
   final AveragesMode mode;
   final _AveragesPalette colors;
+  final List<DailyWeather> daily;
+  final bool useCelsius;
+  final bool showPlaceholder;
 
   const _DailyAverageCard({
     required this.mode,
     required this.colors,
+    required this.daily,
+    required this.useCelsius,
+    required this.showPlaceholder,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isTemp = mode == AveragesMode.temperature;
-
     final Color accentColor = isTemp ? colors.accentYellow : colors.accentBlue;
-    final String headline = isTemp ? "+6° above average" : "20% above average";
-    final String subtext = isTemp ? "Average high: 15°" : "Average: 2.5 mm";
-    final String largeNumber = isTemp ? "21°" : "3.0 mm";
+    final bool hasForecast = !showPlaceholder && daily.isNotEmpty;
+    final todayHigh = hasForecast ? daily.first.maxTempC : null;
+    final todayLow = hasForecast ? daily.first.minTempC : null;
+    final avgHigh = hasForecast
+        ? _average(
+            daily.map((d) => d.maxTempC).toList(),
+            fallback: daily.first.maxTempC,
+          )
+        : null;
+    final avgLow = hasForecast
+        ? _average(
+            daily.map((d) => d.minTempC).toList(),
+            fallback: daily.first.minTempC,
+          )
+        : null;
 
-    final String summary = isTemp
-        ? "For November 8, the normal temperature range is 7°–19°, and the average high is 15°. Today’s high temperature is 21°."
-        : "For November 8, the normal precipitation is 2.5 mm. Today's total is 3.0 mm.";
+    final todayPrecip =
+        hasForecast ? (daily.first.precipMm ?? 0.0) : null;
+    final avgPrecip = hasForecast
+        ? _average(
+            daily.map((d) => d.precipMm ?? 0.0).toList(),
+            fallback: 0.0,
+          )
+        : null;
 
-    final String normalRange =
-    isTemp ? "Normal Range (7°–19°)" : "Normal Range (1–3 mm)";
+    final String headline = hasForecast
+        ? (isTemp
+            ? _deltaLabel(
+                tempValue(todayHigh!, useCelsius) -
+                    tempValue(avgHigh!, useCelsius),
+                unit: "°",
+              )
+            : _deltaLabel(todayPrecip! - avgPrecip!, unit: " mm"))
+        : "Forecast unavailable";
+    final String subtext = hasForecast
+        ? (isTemp
+            ? "Average high: ${tempValue(avgHigh!, useCelsius).round()}°"
+            : "Average: ${avgPrecip!.toStringAsFixed(1)} mm")
+        : "Outlook data is updating.";
+    final String largeNumber = hasForecast
+        ? (isTemp
+            ? "${tempValue(todayHigh!, useCelsius).round()}°"
+            : "${todayPrecip!.toStringAsFixed(1)} mm")
+        : "--";
+
+    final String summary = hasForecast
+        ? (isTemp
+            ? "Today's range is ${tempValue(todayLow!, useCelsius).round()}°–${tempValue(todayHigh!, useCelsius).round()}° with an average high of ${tempValue(avgHigh!, useCelsius).round()}°."
+            : "Today's total is ${todayPrecip!.toStringAsFixed(1)} mm versus an average of ${avgPrecip!.toStringAsFixed(1)} mm.")
+        : "Outlook data isn't available yet.";
+
+    final String normalRange = hasForecast
+        ? (isTemp
+            ? "Normal Range (${tempValue(avgLow!, useCelsius).round()}°–${tempValue(avgHigh!, useCelsius).round()}°)"
+            : "Average (${avgPrecip!.toStringAsFixed(1)} mm)")
+        : "--";
     final String todayLabel = "Today";
 
     final List<Color> gradientColors =
-    isTemp ? colors.tempRangeGradient : colors.precipRangeGradient;
+        isTemp ? colors.tempRangeGradient : colors.precipRangeGradient;
 
-    final double todayPosition = isTemp ? 0.7 : 0.65;
+    final double todayPosition = hasForecast
+        ? (isTemp
+            ? _position(
+                tempValue(todayHigh!, useCelsius),
+                tempValue(avgLow!, useCelsius),
+                tempValue(avgHigh!, useCelsius),
+              )
+            : _position(todayPrecip!, 0, avgPrecip! * 2))
+        : 0.5;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -363,11 +447,73 @@ class _DailyAverageCard extends StatelessWidget {
 class _MonthlyAverageCard extends StatelessWidget {
   final AveragesMode mode;
   final _AveragesPalette colors;
+  final List<DailyWeather> daily;
+  final bool useCelsius;
 
   const _MonthlyAverageCard({
     required this.mode,
     required this.colors,
+    required this.daily,
+    required this.useCelsius,
   });
+
+  List<Map<String, dynamic>> _getForecastData(bool isTemp) {
+    if (daily.isEmpty) return [];
+    final items = daily.take(12).toList();
+    return items.map((day) {
+      final label = _shortDate(day.date);
+      final range = isTemp
+          ? "${tempValue(day.minTempC, useCelsius).round()}°–${tempValue(day.maxTempC, useCelsius).round()}°"
+          : "${(day.precipMm ?? 0.0).toStringAsFixed(1)} mm";
+      final gradient =
+          isTemp ? _getSeasonalGradient(day.date.month) : _getPrecipGradient();
+      return {
+        'label': label,
+        'range': range,
+        'gradient': gradient,
+      };
+    }).toList();
+  }
+
+  String _shortDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}';
+  }
+
+  Map<String, dynamic> _convertTempRange(Map<String, dynamic> item) {
+    final range = item['range'];
+    if (range is! String) return item;
+    final parsed = _parseTempRange(range);
+    if (parsed == null) return item;
+    final minF = tempValue(parsed.$1, false).round();
+    final maxF = tempValue(parsed.$2, false).round();
+    return {
+      ...item,
+      'range': "$minF°–$maxF°",
+    };
+  }
+
+  (double, double)? _parseTempRange(String range) {
+    final matches = RegExp(r'-?\d+\.?\d*').allMatches(range).toList();
+    if (matches.length < 2) return null;
+    final min = double.tryParse(matches[0].group(0) ?? '');
+    final max = double.tryParse(matches[1].group(0) ?? '');
+    if (min == null || max == null) return null;
+    return (min, max);
+  }
 
   LinearGradient _getSeasonalGradient(int month) {
     final double t = (1.0 - ((month - 7).abs() / 6.0)).clamp(0.0, 1.0);
@@ -388,39 +534,46 @@ class _MonthlyAverageCard extends StatelessWidget {
   }
 
   List<Map<String, dynamic>> _getTempData() => [
-    {'month': 'Jan', 'range': '4°–8°', 'gradient': _getSeasonalGradient(1)},
-    {'month': 'Feb', 'range': '5°–10°', 'gradient': _getSeasonalGradient(2)},
-    {'month': 'Mar', 'range': '8°–15°', 'gradient': _getSeasonalGradient(3)},
-    {'month': 'Apr', 'range': '12°–20°', 'gradient': _getSeasonalGradient(4)},
-    {'month': 'May', 'range': '16°–24°', 'gradient': _getSeasonalGradient(5)},
-    {'month': 'Jun', 'range': '20°–28°', 'gradient': _getSeasonalGradient(6)},
-    {'month': 'Jul', 'range': '22°–30°', 'gradient': _getSeasonalGradient(7)},
-    {'month': 'Aug', 'range': '21°–29°', 'gradient': _getSeasonalGradient(8)},
-    {'month': 'Sep', 'range': '18°–26°', 'gradient': _getSeasonalGradient(9)},
-    {'month': 'Oct', 'range': '13°–21°', 'gradient': _getSeasonalGradient(10)},
-    {'month': 'Nov', 'range': '8°–15°', 'gradient': _getSeasonalGradient(11)},
-    {'month': 'Dec', 'range': '5°–10°', 'gradient': _getSeasonalGradient(12)},
+    {'label': 'Jan', 'range': '4°–8°', 'gradient': _getSeasonalGradient(1)},
+    {'label': 'Feb', 'range': '5°–10°', 'gradient': _getSeasonalGradient(2)},
+    {'label': 'Mar', 'range': '8°–15°', 'gradient': _getSeasonalGradient(3)},
+    {'label': 'Apr', 'range': '12°–20°', 'gradient': _getSeasonalGradient(4)},
+    {'label': 'May', 'range': '16°–24°', 'gradient': _getSeasonalGradient(5)},
+    {'label': 'Jun', 'range': '20°–28°', 'gradient': _getSeasonalGradient(6)},
+    {'label': 'Jul', 'range': '22°–30°', 'gradient': _getSeasonalGradient(7)},
+    {'label': 'Aug', 'range': '21°–29°', 'gradient': _getSeasonalGradient(8)},
+    {'label': 'Sep', 'range': '18°–26°', 'gradient': _getSeasonalGradient(9)},
+    {'label': 'Oct', 'range': '13°–21°', 'gradient': _getSeasonalGradient(10)},
+    {'label': 'Nov', 'range': '8°–15°', 'gradient': _getSeasonalGradient(11)},
+    {'label': 'Dec', 'range': '5°–10°', 'gradient': _getSeasonalGradient(12)},
   ];
 
   List<Map<String, dynamic>> _getPrecipData() => [
-    {'month': 'Jan', 'range': '40–60 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Feb', 'range': '30–58 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Mar', 'range': '30–50 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Apr', 'range': '20–40 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'May', 'range': '10–30 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Jun', 'range': '5–20 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Jul', 'range': '5–15 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Aug', 'range': '5–20 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Sep', 'range': '10–30 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Oct', 'range': '30–50 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Nov', 'range': '40–60 mm', 'gradient': _getPrecipGradient()},
-    {'month': 'Dec', 'range': '50–70 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Jan', 'range': '40–60 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Feb', 'range': '30–58 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Mar', 'range': '30–50 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Apr', 'range': '20–40 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'May', 'range': '10–30 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Jun', 'range': '5–20 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Jul', 'range': '5–15 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Aug', 'range': '5–20 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Sep', 'range': '10–30 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Oct', 'range': '30–50 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Nov', 'range': '40–60 mm', 'gradient': _getPrecipGradient()},
+    {'label': 'Dec', 'range': '50–70 mm', 'gradient': _getPrecipGradient()},
   ];
 
   @override
   Widget build(BuildContext context) {
     final bool isTemp = mode == AveragesMode.temperature;
-    final data = isTemp ? _getTempData() : _getPrecipData();
+    final forecastData = _getForecastData(isTemp);
+    final useForecast = forecastData.isNotEmpty;
+    var data = useForecast
+        ? forecastData
+        : (isTemp ? _getTempData() : _getPrecipData());
+    if (!useForecast && isTemp && !useCelsius) {
+      data = data.map(_convertTempRange).toList();
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -432,13 +585,13 @@ class _MonthlyAverageCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Monthly Averages",
+            useForecast ? "Next 12 Days" : "Monthly Averages",
             style: AppTextStyles.title.copyWith(color: colors.text),
           ),
           const SizedBox(height: 16),
           ...data.map(
                 (item) => _buildMonthRow(
-              item['month'] as String,
+              item['label'] as String,
               item['range'] as String,
               item['gradient'] as Gradient,
             ),
@@ -446,7 +599,9 @@ class _MonthlyAverageCard extends StatelessWidget {
           const SizedBox(height: 16),
           Center(
             child: Text(
-              'Data from 10-year averages (2013–2023)',
+              useForecast
+                  ? 'Based on forecast data'
+                  : 'Data from 10-year averages (2013–2023)',
               style: AppTextStyles.smallSubtext.copyWith(
                 color: colors.subtext,
               ),
@@ -498,4 +653,26 @@ class _MonthlyAverageCard extends StatelessWidget {
       ),
     );
   }
+}
+
+double _average(List<double> values, {required double fallback}) {
+  if (values.isEmpty) return fallback;
+  final sum = values.fold<double>(0.0, (acc, v) => acc + v);
+  return sum / values.length;
+}
+
+String _deltaLabel(double delta, {required String unit}) {
+  final rounded = delta.abs();
+  final value = unit.trim().isEmpty
+      ? rounded.toStringAsFixed(1)
+      : unit == "°"
+          ? rounded.round().toString()
+          : rounded.toStringAsFixed(1);
+  if (delta >= 0) return "+$value$unit above average";
+  return "$value$unit below average";
+}
+
+double _position(double value, double min, double max) {
+  final span = (max - min).abs() < 0.01 ? 1.0 : (max - min);
+  return ((value - min) / span).clamp(0.0, 1.0);
 }
