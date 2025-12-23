@@ -1,10 +1,10 @@
 import 'dart:math' as math;
-import 'dart:ui' show lerpDouble;
+import 'dart:ui' show ImageFilter, lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
-import '../../../router/app_router.dart' show ThemePref;
+import '../../../core/theme_pref.dart';
 import '../../../providers/settings_state.dart';
 import '../../../providers/weather_state.dart';
 import '../../../services/weather_models.dart';
@@ -18,6 +18,11 @@ import '../windmap_screen/windmap_screen.dart';
 import '../graphs_screen/temperature_graphs_screen.dart';
 import '../graphs_screen/precipitation_graphs_screen.dart';
 import '../../widgets/wind_map_view.dart';
+
+const double _kFloatingBarHeight = 64;
+const double _kFloatingBarMargin = 12;
+
+int _windFlowDegrees(int degrees) => (degrees + 180) % 360;
 
 class MainScreen extends StatefulWidget {
   const MainScreen({
@@ -84,73 +89,74 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final theme = widget.appTheme;
     final weather = context.watch<WeatherState>();
+    final settings = context.watch<SettingsState>();
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final floatingBarInset =
+        bottomInset + _kFloatingBarHeight + _kFloatingBarMargin;
     final pageCount = weather.locations.length + 1;
-    final orderToken = weather.locations
-        .map((loc) => loc.placeId ?? '${loc.latitude},${loc.longitude}')
-        .join('|');
-    if (_activePage >= pageCount) {
-      _activePage = pageCount - 1;
+    final needsClamp = _activePage >= pageCount;
+    final shouldForceLocations = settings.locationsEditing && _activePage != 0;
+    if (needsClamp || shouldForceLocations) {
+      final target = shouldForceLocations ? 0 : pageCount - 1;
+      _activePage = target.clamp(0, pageCount - 1);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        if (!_pageController.hasClients) return;
         _pageController.jumpToPage(_activePage);
       });
     }
 
     return Scaffold(
       backgroundColor: theme.bg,
-      body: SafeArea(
-        child: PageView.builder(
-          key: ValueKey(orderToken),
-          controller: _pageController,
-          onPageChanged: _handlePageChanged,
-          itemCount: pageCount,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Column(
-                children: [
-                  Expanded(
-                    child: LocationsView(
-                      theme: theme,
-                      showBackButton: false,
-                      onSelectIndex: (locationIndex) {
-                        context
-                            .read<WeatherState>()
-                            .setActiveIndex(locationIndex);
-                        _setPage(locationIndex + 1);
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: _BottomActions(
-                      theme: theme,
-                      count: pageCount,
-                      active: _activePage,
-                      onOpenLocations: () => _setPage(0),
-                      onOpenSettings: _openSettings,
-                      onDotTap: _setPage,
-                    ),
-                  ),
-                ],
-              );
-            }
+      body: Stack(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: _handlePageChanged,
+              itemCount: pageCount,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return LocationsView(
+                    theme: theme,
+                    showBackButton: false,
+                    bottomInset: floatingBarInset,
+                    onSelectIndex: (locationIndex) {
+                      context
+                          .read<WeatherState>()
+                          .setActiveIndex(locationIndex);
+                      _setPage(locationIndex + 1);
+                    },
+                  );
+                }
 
-            final locationIndex = index - 1;
-            final snapshot = weather.snapshotForIndex(locationIndex);
-            return MainScreenBody(
+                final locationIndex = index - 1;
+                final snapshot = weather.snapshotForIndex(locationIndex);
+                return MainScreenBody(
+                  theme: theme,
+                  snapshot: snapshot,
+                  errorMessage: weather.errorForIndex(locationIndex),
+                  isOffline: weather.isOffline,
+                  locationIndex: locationIndex,
+                );
+              },
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: _kFloatingBarMargin + bottomInset,
+            child: _BottomActions(
               theme: theme,
-              snapshot: snapshot,
-              errorMessage: weather.errorForIndex(locationIndex),
-              isOffline: weather.isOffline,
-              locationIndex: locationIndex,
-              pageCount: pageCount,
-              activePage: _activePage,
+              count: pageCount,
+              active: _activePage,
               onOpenLocations: () => _setPage(0),
               onOpenSettings: _openSettings,
-              onPageDotTap: _setPage,
-            );
-          },
-        ),
+              onDotTap: _setPage,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -164,11 +170,6 @@ class MainScreenBody extends StatefulWidget {
     required this.errorMessage,
     required this.isOffline,
     required this.locationIndex,
-    required this.pageCount,
-    required this.activePage,
-    required this.onOpenLocations,
-    required this.onOpenSettings,
-    required this.onPageDotTap,
   });
 
   final AppTheme theme;
@@ -176,11 +177,6 @@ class MainScreenBody extends StatefulWidget {
   final String? errorMessage;
   final bool isOffline;
   final int locationIndex;
-  final int pageCount;
-  final int activePage;
-  final VoidCallback onOpenLocations;
-  final VoidCallback onOpenSettings;
-  final ValueChanged<int> onPageDotTap;
 
   @override
   State<MainScreenBody> createState() => _MainScreenBodyState();
@@ -251,6 +247,9 @@ class _MainScreenBodyState extends State<MainScreenBody> {
     final avgHighC = showPlaceholder
         ? null
         : _averageDouble(dailyOutlook.map((d) => d.maxTempC).toList());
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final scrollBottomPadding =
+        20 + _kFloatingBarHeight + _kFloatingBarMargin + bottomInset;
     final statusText = "Weather unavailable";
     final showErrorCard = widget.errorMessage != null && showPlaceholder;
     final tempSize = lerpDouble(56, 36, _t)!;
@@ -323,7 +322,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                   behavior: const _NoGlowScroll(),
                   child: SingleChildScrollView(
                     controller: _sc,
-                    padding: const EdgeInsets.only(bottom: 20),
+                    padding: EdgeInsets.only(bottom: scrollBottomPadding),
                     child: Column(
                       children: [
                         if (showErrorCard) ...[
@@ -440,10 +439,6 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                           ),
                         ),
 
-                        // ✅ Step-3 CRUD + realtime section
-                        const SizedBox(height: 10),
-                        _ItemsCard(theme: theme),
-
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () {
@@ -520,15 +515,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                             isOffline: widget.isOffline,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _BottomActions(
-                          theme: theme,
-                          count: widget.pageCount,
-                          active: widget.activePage,
-                          onOpenLocations: widget.onOpenLocations,
-                          onOpenSettings: widget.onOpenSettings,
-                          onDotTap: widget.onPageDotTap,
-                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -538,209 +525,6 @@ class _MainScreenBodyState extends State<MainScreenBody> {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// ✅ Firestore Items UI (Add / Edit / Delete) — uses ItemsState (realtime)
-class _ItemsCard extends StatelessWidget {
-  const _ItemsCard({required this.theme});
-  final AppTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<ItemsState>(
-      builder: (context, st, _) {
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: theme.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: theme.border),
-          ),
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _SectionLabel(
-                    theme: theme,
-                    icon: Icons.cloud_done,
-                    title: "YOUR ITEMS (FIRESTORE)",
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: "Add",
-                    onPressed: () => _openAddDialog(context),
-                    icon: Icon(Icons.add_circle_outline, color: theme.text),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (st.loading)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(theme.accent),
-                      strokeWidth: 2,
-                    ),
-                  ),
-                )
-              else if (st.error != null)
-                Text(st.error!, style: const TextStyle(color: Colors.red))
-              else if (st.items.isEmpty)
-                Text(
-                  "No items yet. Tap + to add one.",
-                  style: TextStyle(color: theme.sub),
-                )
-              else
-                Column(
-                  children: st.items.map((m) {
-                    final id = (m['id'] ?? '').toString();
-                    final title = (m['title'] ?? '').toString();
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.cardAlt,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: theme.border),
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            title,
-                            style: TextStyle(
-                              color: theme.text,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "Realtime • owned by user",
-                            style: TextStyle(color: theme.sub, fontSize: 12),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: "Edit",
-                                onPressed: () =>
-                                    _openEditDialog(context, id, title),
-                                icon: Icon(Icons.edit, color: theme.text),
-                              ),
-                              IconButton(
-                                tooltip: "Delete",
-                                onPressed: () => st.remove(id),
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _openAddDialog(BuildContext context) async {
-    final items = context.read<ItemsState>(); // ✅ async gap öncesi al
-    final ctrl = TextEditingController();
-
-    final ok = await _openTextDialog(
-      context,
-      title: "Add Item",
-      hint: "Title",
-      controller: ctrl,
-      confirmText: "Add",
-    );
-    if (ok != true) return;
-
-    final title = ctrl.text.trim();
-    if (title.isEmpty) return;
-
-    await items.add(title);
-  }
-
-  Future<void> _openEditDialog(
-    BuildContext context,
-    String id,
-    String currentTitle,
-  ) async {
-    final items = context.read<ItemsState>(); // ✅ async gap öncesi al
-    final ctrl = TextEditingController(text: currentTitle);
-
-    final ok = await _openTextDialog(
-      context,
-      title: "Edit Item",
-      hint: "Title",
-      controller: ctrl,
-      confirmText: "Save",
-    );
-    if (ok != true) return;
-
-    final title = ctrl.text.trim();
-    if (title.isEmpty) return;
-
-    await items.update(id, title);
-  }
-
-  Future<bool?> _openTextDialog(
-    BuildContext context, {
-    required String title,
-    required String hint,
-    required TextEditingController controller,
-    required String confirmText,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final bg = Theme.of(ctx).scaffoldBackgroundColor;
-        final isDark = bg.computeLuminance() < 0.5;
-        final textColor = isDark ? Colors.white : Colors.black;
-        final subColor = isDark ? Colors.white70 : Colors.black54;
-        final borderColor = isDark ? Colors.white54 : Colors.black45;
-        final primary = Theme.of(ctx).colorScheme.primary;
-
-        InputDecoration deco(String label) => InputDecoration(
-              labelText: label,
-              labelStyle: TextStyle(color: subColor),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: borderColor),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: primary, width: 2),
-              ),
-            );
-
-        return AlertDialog(
-          title: Text(title, style: TextStyle(color: textColor)),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            style: TextStyle(color: textColor),
-            decoration: deco(hint),
-            onSubmitted: (_) => Navigator.pop(ctx, true),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(confirmText),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -921,25 +705,37 @@ class _Header extends StatelessWidget {
           children: [
             Icon(Icons.place_outlined, size: 18, color: theme.sub),
             const SizedBox(width: 6),
-            Text(
-              locationName,
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
+            Expanded(
+              child: Text(
+                locationName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.text,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            const Spacer(),
-            if (isOffline) ...[
-              _Chip(
-                theme: theme,
-                text: "Offline",
-                icon: Icons.cloud_off_rounded,
-              ),
-              const SizedBox(width: 8),
-            ],
-            _Chip(theme: theme, text: condition, icon: conditionIcon),
           ],
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              if (isOffline)
+                _Chip(
+                  theme: theme,
+                  text: "Offline",
+                  icon: Icons.cloud_off_rounded,
+                ),
+              _Chip(theme: theme, text: condition, icon: conditionIcon),
+            ],
+          ),
         ),
         const SizedBox(height: 6),
         Row(
@@ -988,26 +784,34 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.cardAlt,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: theme.sub),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              color: theme.sub,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 160),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.cardAlt,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: theme.sub),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.sub,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1167,6 +971,13 @@ class _FiveDayCard extends StatelessWidget {
     final maxRows = 5;
     final now = DateTime.now();
     final data = placeholder ? <DailyWeather>[] : days.take(maxRows).toList();
+    final tempValues = <int>[];
+    for (final day in data) {
+      tempValues.add(tempValue(day.maxTempC, useCelsius).round());
+      tempValues.add(tempValue(day.minTempC, useCelsius).round());
+    }
+    final minTemp = tempValues.isEmpty ? null : tempValues.reduce(math.min);
+    final maxTemp = tempValues.isEmpty ? null : tempValues.reduce(math.max);
     final rows = List.generate(maxRows, (i) {
       if (i < data.length) {
         final day = data[i];
@@ -1177,6 +988,8 @@ class _FiveDayCard extends StatelessWidget {
           day: _dayLabel(day.date),
           hi: hi,
           lo: lo,
+          minTemp: minTemp,
+          maxTemp: maxTemp,
           icon: _iconForCondition(day.condition),
         );
       }
@@ -1186,6 +999,8 @@ class _FiveDayCard extends StatelessWidget {
         day: _dayLabel(date),
         hi: null,
         lo: null,
+        minTemp: minTemp,
+        maxTemp: maxTemp,
         icon: Icons.cloud_queue,
       );
     });
@@ -1220,6 +1035,8 @@ class _DayRow extends StatelessWidget {
     required this.day,
     required this.hi,
     required this.lo,
+    required this.minTemp,
+    required this.maxTemp,
     required this.icon,
   });
 
@@ -1227,13 +1044,25 @@ class _DayRow extends StatelessWidget {
   final String day;
   final int? hi;
   final int? lo;
+  final int? minTemp;
+  final int? maxTemp;
   final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final double full = 160;
-    final int span = hi == null || lo == null ? 0 : (hi! - lo!).clamp(0, 20);
-    final double bar = (span / 20.0) * full;
+    final bool hasTemps =
+        hi != null && lo != null && minTemp != null && maxTemp != null;
+    final int range = hasTemps ? (maxTemp! - minTemp!).abs() : 0;
+    final double safeRange = range == 0 ? 1.0 : range.toDouble();
+    final double start =
+        hasTemps ? ((lo! - minTemp!) / safeRange).clamp(0.0, 1.0) : 0.0;
+    final double end =
+        hasTemps ? ((hi! - minTemp!) / safeRange).clamp(0.0, 1.0) : 0.0;
+    final double barWidth = hasTemps
+        ? math.max(10.0, (end - start) * full)
+        : 0.0;
+    final double barLeft = hasTemps ? start * full : 0.0;
     final hiLoText =
         hi == null || lo == null ? "-- / --" : "$hi° / $lo°";
 
@@ -1252,19 +1081,24 @@ class _DayRow extends StatelessWidget {
               children: [
                 Container(
                   height: 6,
+                  width: full,
                   decoration: BoxDecoration(
                     color: theme.cardAlt,
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                Container(
-                  height: 6,
-                  width: bar,
-                  decoration: BoxDecoration(
-                    color: theme.accent.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16),
+                if (barWidth > 0)
+                  Positioned(
+                    left: barLeft,
+                    child: Container(
+                      height: 6,
+                      width: barWidth,
+                      decoration: BoxDecoration(
+                        color: theme.accent.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1476,6 +1310,7 @@ class _AveragesPreview extends StatelessWidget {
         hasData ? tempValue(delta.abs(), useCelsius).round() : null;
     final avgLabel = hasData ? tempLabel(avgHighC!, useCelsius) : "--";
     final deltaText = hasData ? "$sign$deltaValue°" : "--";
+    final deltaColor = delta < 0 ? theme.rainy : theme.sunny;
     final lineText = hasData
         ? "Today’s high is $sign$deltaValue° vs avg $avgLabel."
         : "Outlook data is updating.";
@@ -1520,7 +1355,7 @@ class _AveragesPreview extends StatelessWidget {
           Text(
             deltaText,
             style: TextStyle(
-              color: theme.sunny,
+              color: deltaColor,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -1597,9 +1432,12 @@ class _WindMeta extends StatelessWidget {
     final speedText =
         windSpeed == null ? "--" : windLabel(windSpeed!, windInKph);
     final gustText = windGust == null ? "--" : windLabel(windGust!, windInKph);
-    final directionText = windDirectionDegrees == null
+    final flowDegrees = windDirectionDegrees == null
+        ? null
+        : _windFlowDegrees(windDirectionDegrees!);
+    final directionText = flowDegrees == null
         ? "--"
-        : "${windDirectionDegrees!.round()}° ${windDirectionLabel(windDirectionDegrees!)}";
+        : "${flowDegrees}° ${windDirectionLabel(flowDegrees)}";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1673,7 +1511,11 @@ class _WindCompass extends StatelessWidget {
         children: [
           CustomPaint(
             size: const Size(92, 92),
-            painter: _CompassPainter(theme, windDirectionDegrees),
+            painter: _CompassPainter(
+              theme,
+              windDirectionDegrees,
+              windSpeed,
+            ),
           ),
           Text(
             unitText.isEmpty ? speedValue : "$speedValue\n$unitText",
@@ -1692,9 +1534,10 @@ class _WindCompass extends StatelessWidget {
 }
 
 class _CompassPainter extends CustomPainter {
-  _CompassPainter(this.theme, this.windDirectionDegrees);
+  _CompassPainter(this.theme, this.windDirectionDegrees, this.windSpeed);
   final AppTheme theme;
   final int? windDirectionDegrees;
+  final double? windSpeed;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1720,13 +1563,17 @@ class _CompassPainter extends CustomPainter {
 
     if (windDirectionDegrees == null) return;
 
-    final double angle = (windDirectionDegrees! - 90) * math.pi / 180;
+    final speed = windSpeed ?? 0;
+    final speedScale = (speed / 40.0).clamp(0.4, 1.0);
+
+    final flowDegrees = _windFlowDegrees(windDirectionDegrees!);
+    final double angle = (flowDegrees - 90) * math.pi / 180;
     final double ux = math.cos(angle);
     final double uy = math.sin(angle);
 
-    final double startR = r * 0.34;
-    final double baseR = r * 0.66;
-    final double tipR = r * 0.80;
+    final double startR = r * (0.28 + 0.06 * speedScale);
+    final double baseR = r * (0.54 + 0.12 * speedScale);
+    final double tipR = r * (0.68 + 0.16 * speedScale);
 
     final Offset start = Offset(c.dx + startR * ux, c.dy + startR * uy);
     final Offset base = Offset(c.dx + baseR * ux, c.dy + baseR * uy);
@@ -1734,12 +1581,12 @@ class _CompassPainter extends CustomPainter {
 
     final Paint shaft = Paint()
       ..color = theme.accent
-      ..strokeWidth = 2.5
+      ..strokeWidth = 2.0 + 1.2 * speedScale
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(start, base, shaft);
 
-    const double headLen = 8;
-    const double headWidth = 7;
+    final double headLen = 6 + 6 * speedScale;
+    final double headWidth = 6 + 4 * speedScale;
     final Offset headBase = Offset(
       tip.dx - ux * headLen,
       tip.dy - uy * headLen,
@@ -1769,7 +1616,8 @@ class _CompassPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CompassPainter oldDelegate) =>
       oldDelegate.theme != theme ||
-      oldDelegate.windDirectionDegrees != windDirectionDegrees;
+      oldDelegate.windDirectionDegrees != windDirectionDegrees ||
+      oldDelegate.windSpeed != windSpeed;
 }
 
 class _PrecipTile extends StatelessWidget {
@@ -1856,8 +1704,11 @@ class _WindMapCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasWind = windSpeed != null && windDirectionDegrees != null;
+    final flowDegrees = windDirectionDegrees == null
+        ? null
+        : _windFlowDegrees(windDirectionDegrees!);
     final label = hasWind
-        ? "Wind ${windLabel(windSpeed!, windInKph)} • ${windDirectionLabel(windDirectionDegrees!)}"
+        ? "Wind ${windLabel(windSpeed!, windInKph)} • ${windDirectionLabel(flowDegrees!)}"
         : "Wind --";
 
     return Container(
@@ -1915,6 +1766,8 @@ class _WindMapCard extends StatelessWidget {
                       ),
                       child: Text(
                         label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: theme.sub, fontSize: 12),
                       ),
                     ),
@@ -2021,21 +1874,40 @@ class _RoundAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Container(
-          width: 44,
-          height: 44,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: theme.cardAlt,
             shape: BoxShape.circle,
-            border: Border.all(color: theme.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Icon(icon, color: theme.text, size: 22),
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.cardAlt.withValues(alpha: 0.65),
+                      theme.cardAlt.withValues(alpha: 0.2),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: theme.border.withValues(alpha: 0.7),
+                  ),
+                ),
+                child: Icon(icon, color: theme.text, size: 24),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -2056,34 +1928,60 @@ class _PagerDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(28);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.cardAlt,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: theme.border),
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(count, (i) {
-          final on = i == active;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: GestureDetector(
-              onTap: () => onDotTap(i),
-              child: Container(
-                width: on ? 16 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: on
-                      ? theme.accent
-                      : theme.sub.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(6),
-                ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  theme.cardAlt.withValues(alpha: 0.55),
+                  theme.cardAlt.withValues(alpha: 0.2),
+                ],
               ),
+              border: Border.all(color: theme.border.withValues(alpha: 0.7)),
             ),
-          );
-        }),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(count, (i) {
+                final on = i == active;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: GestureDetector(
+                    onTap: () => onDotTap(i),
+                    child: Container(
+                      width: on ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: on
+                            ? theme.accent
+                            : theme.sub.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
       ),
     );
   }

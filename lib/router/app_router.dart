@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../core/theme_pref.dart';
 import '../providers/auth_state.dart';
-import '../providers/items_state.dart';
 import '../providers/settings_state.dart';
 import '../providers/weather_state.dart';
 import '../presentation/screens/auth/auth_gate.dart';
@@ -55,14 +54,6 @@ class _UmbrellaAppState extends State<UmbrellaApp> {
         ChangeNotifierProvider(create: (_) => WeatherState()),
 
         // ItemsState needs to know the current user for Firestore paths.
-        ChangeNotifierProxyProvider<AuthState, ItemsState>(
-          create: (_) => ItemsState(),
-          update: (_, auth, items) {
-            final st = items ?? ItemsState();
-            st.bindUser(auth.user);
-            return st;
-          },
-        ),
       ],
       child: Builder(
         builder: (context) {

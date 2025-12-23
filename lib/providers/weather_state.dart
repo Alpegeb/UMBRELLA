@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/weather_config.dart';
+import '../services/api_key_store.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/weather_models.dart';
@@ -109,7 +111,11 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
     }
     _savedLocations.add(location.copyWith(isDevice: false));
     _hasLocalChanges = true;
-    await _persistSavedLocations();
+    try {
+      await _persistSavedLocations();
+    } catch (_) {
+      // Keep the location added even if persistence fails.
+    }
     _rebuildLocations();
     while (_snapshots.length < _locations.length) {
       _snapshots.add(null);
@@ -197,6 +203,7 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
+    await _ensureApiKeys();
     if (_loading) {
       _pendingRefresh = true;
       return;
@@ -294,6 +301,7 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _ensureSnapshot(int index) async {
     if (_snapshots.length <= index) return;
     if (_snapshots[index] != null) return;
+    await _ensureApiKeys();
     final cached = _cachedSnapshotFor(_locations[index]);
     if (cached != null) {
       _snapshots[index] = cached;
@@ -344,6 +352,15 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
     );
     _errors = List<String?>.filled(_locations.length, null);
     await _refresh();
+  }
+
+  Future<void> _ensureApiKeys() async {
+    if (WeatherConfig.apiKey.isNotEmpty) return;
+    try {
+      await ApiKeyStore.instance.load();
+    } catch (_) {
+      // Key fetch is best-effort; fallback stays in place.
+    }
   }
 
   void _rebuildLocations() {
@@ -457,12 +474,12 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
     bool manageRetry = true,
   }) {
     if (results.isEmpty) return;
-    final anySuccess = results.any((result) => result.success);
-    _isOffline = !anySuccess;
-    if (!_isOffline) {
+    if (_isOffline) {
+      if (manageRetry) {
+        _startOfflineRetry();
+      }
+    } else {
       _stopOfflineRetry();
-    } else if (manageRetry) {
-      _startOfflineRetry();
     }
   }
 
@@ -514,7 +531,14 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
       _startOfflineRetry();
       return;
     }
-    _checkInternetAndUpdate();
+    if (_isOffline) {
+      _isOffline = false;
+      notifyListeners();
+      _stopOfflineRetry();
+      _refresh();
+    } else {
+      _stopOfflineRetry();
+    }
   }
 
   void _startReachabilityTimer() {
@@ -536,15 +560,16 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
     _checkingInternet = true;
     final ok = await _hasInternet();
     _checkingInternet = false;
+    final wasOffline = _isOffline;
     if (!ok) {
-      if (!_isOffline) {
-        _isOffline = true;
-        notifyListeners();
-      }
-      _startOfflineRetry();
       return;
     }
-    if (_isOffline) {
+    if (wasOffline) {
+      _isOffline = false;
+      notifyListeners();
+    }
+    _stopOfflineRetry();
+    if (wasOffline) {
       _refresh();
     }
   }

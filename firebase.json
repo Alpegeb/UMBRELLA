@@ -1,1 +1,33 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"umbrella-8735d","appId":"1:19775881168:android:5b7dea330efbbed29803d5","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"umbrella-8735d","appId":"1:19775881168:ios:d18cd06e2cbaba339803d5","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"umbrella-8735d","configurations":{"android":"1:19775881168:android:5b7dea330efbbed29803d5","ios":"1:19775881168:ios:d18cd06e2cbaba339803d5"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "umbrella-8735d",
+          "appId": "1:19775881168:android:5b7dea330efbbed29803d5",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "umbrella-8735d",
+          "appId": "1:19775881168:ios:d18cd06e2cbaba339803d5",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "umbrella-8735d",
+          "configurations": {
+            "android": "1:19775881168:android:5b7dea330efbbed29803d5",
+            "ios": "1:19775881168:ios:d18cd06e2cbaba339803d5"
+          }
+        }
+      }
+    }
+  }
+}

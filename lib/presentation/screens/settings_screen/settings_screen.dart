@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 import '../../../core/app_theme.dart';
 import '../../../core/theme_pref.dart';
 import '../../../providers/auth_state.dart';
+import '../../../providers/settings_state.dart';
+import '../about_screen/about_screen.dart';
+import '../feedback_screen/feedback_screen.dart';
+import '../notification_screen/notification_screen.dart';
 
-import 'package:umbrella/providers/auth_state.dart';
-import 'package:umbrella/providers/settings_state.dart';
-
+const String _kAppVersionLabel = '0.2.0';
+const String _kAppBuildLabel = '2';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -192,12 +195,19 @@ class SettingsPage extends StatelessWidget {
                 color: colors,
                 icon: Icons.info_outline,
                 title: "About Umbrella",
-                subtitle: "Version 0.1 • Mock build",
+                subtitle: "Version $_kAppVersionLabel • Build $_kAppBuildLabel",
                 labelStyle: labelStyle,
                 subStyle: subStyle,
+                trailing: Icon(Icons.chevron_right, color: colors.sub),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Umbrella 0.1 (mock)")),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AboutScreen(
+                        appTheme: colors,
+                        versionLabel:
+                            'Version $_kAppVersionLabel (Build $_kAppBuildLabel)',
+                      ),
+                    ),
                   );
                 },
               ),
