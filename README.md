@@ -18,16 +18,53 @@
 | Berkay Türeyen | 30763 | Integration & Repository Lead |
 | Nisa Kan     | 31999 | Presentation & Communication Lead |
 
-## ✅ Requirements
+---
 
-- **Flutter SDK:** 3.7.x (Dart 3.7.x)
+## 📦 Deliverables
+- ✅ Working Flutter application (demo-ready)
+- ✅ GitHub repository with visible commits (implementation + integration + fixes)
+- ✅ Automated tests (at least **1 unit** + **1 widget**) and `flutter test` passes
+- ✅ `README.md` with setup/run instructions and test explanations
+- ✅ Final PDF report (to be uploaded on SUCourse)
+- ✅ 5-minute demo video (Google Drive link)
+
+---
+## ✅ Requirements
+- Flutter SDK: **3.7.x**
+- Dart: **3.7.x**
 - Android Studio / Xcode (emulator/simulator)
 - Firebase project configured (Auth + Firestore)
 
+---
+
 ## 🚀 Setup & Run Instructions
 
-1) Clone the repository:
+### 1) Clone the repository
 ```bash
 git clone <REPO_URL>
 cd UMBRELLA
-
+2) Install dependencies
+flutter pub get
+3) Firebase configuration
+This project uses Firebase Authentication and Cloud Firestore.
+Android: place google-services.json under android/app/
+iOS: place GoogleService-Info.plist under ios/Runner/
+(If your repo uses FlutterFire CLI, you may also run:)
+flutterfire configure
+4) Run the app
+flutter run
+🧪 Testing
+Run all tests:
+flutter test
+What our tests cover
+We implemented at least 2 meaningful tests (1 unit test + 1 widget test) and ensured flutter test passes successfully.
+Unit Test — test/settings_state_unit_test.dart
+Verifies that SettingsState loads preferences from SharedPreferences, updates them through setter methods, and persists values across new SettingsState instances.
+Widget Test — test/settings_state_widget_umbrella_toggle_test.dart
+Pumps a minimal UI using Provider, waits for SettingsState to finish loading, taps the toggle button, and confirms the displayed text updates when showUmbrellaIndex changes.
+Smoke Test — test/widget_test.dart
+Known Limitations / Notes
+Some background features (e.g., notifications / background tasks) may behave differently on emulators due to OS restrictions.
+If location permissions are denied, weather-based features may be limited.
+📽️ Video Demo
+Google Drive video link: TODO: paste link here
