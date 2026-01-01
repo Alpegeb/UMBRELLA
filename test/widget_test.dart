@@ -57,28 +57,24 @@ Future<void> _pumpUntilLoaded(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 20));
     if (find.text('loading').evaluate().isEmpty) return;
   }
-  // If still loading, let the test fail with a helpful message.
   fail('SettingsState did not finish loading (SharedPreferences) in time.');
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('SettingsState loads defaults and toggles useCelsius in UI',
-      (tester) async {
-    // Mock SharedPreferences so tests don’t hit platform channels.
+  testWidgets('SettingsState loads defaults and toggles useCelsius in UI', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(const _SettingsHarness());
+    // ✅ key verildi -> unused_element_parameter warning biter
+    await tester.pumpWidget(const _SettingsHarness(key: Key('settingsHarness')));
     expect(find.text('loading'), findsOneWidget);
 
     await _pumpUntilLoaded(tester);
 
-    // Defaults from SettingsState:
     expect(find.byKey(const Key('stateText')), findsOneWidget);
     expect(find.text('umbrella:true celsius:true'), findsOneWidget);
 
-    // Toggle celsius
     await tester.tap(find.byKey(const Key('toggleCelsius')));
     await tester.pumpAndSettle();
 
