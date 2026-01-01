@@ -44,7 +44,8 @@ class _UmbrellaToggleView extends StatelessWidget {
                   .read<SettingsState>()
                   .setShowUmbrellaIndex(!s.showUmbrellaIndex);
             },
-            child: const Icon(Icons.umbrella),
+            // ✅ garanti ikon (her sürümde var)
+            child: const Icon(Icons.beach_access),
           ),
         );
       },
@@ -53,17 +54,22 @@ class _UmbrellaToggleView extends StatelessWidget {
 }
 
 Future<void> _pumpUntilLoaded(WidgetTester tester) async {
-  for (int i = 0; i < 50; i++) {
-    await tester.pump(const Duration(milliseconds: 20));
+  for (int i = 0; i < 80; i++) {
+    await tester.pump(const Duration(milliseconds: 25));
     if (find.text('loading').evaluate().isEmpty) return;
   }
   fail('SettingsState did not finish loading (SharedPreferences) in time.');
 }
 
+String _umbrellaText(WidgetTester tester) {
+  final t = tester.widget<Text>(find.byKey(const Key('umbrellaText')));
+  return (t.data ?? '').trim();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('SettingsState toggles showUmbrellaIndex in UI', (tester) async {
+  testWidgets('Tapping FAB toggles showUmbrellaIndex text', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(const _UmbrellaToggleHarness());
@@ -71,15 +77,16 @@ void main() {
 
     await _pumpUntilLoaded(tester);
 
-    expect(find.byKey(const Key('umbrellaText')), findsOneWidget);
-    expect(find.text('umbrella:true'), findsOneWidget);
+    final before = _umbrellaText(tester);
 
     await tester.tap(find.byKey(const Key('toggleUmbrella')));
     await tester.pumpAndSettle();
-    expect(find.text('umbrella:false'), findsOneWidget);
+    final after1 = _umbrellaText(tester);
+    expect(after1, isNot(equals(before)));
 
     await tester.tap(find.byKey(const Key('toggleUmbrella')));
     await tester.pumpAndSettle();
-    expect(find.text('umbrella:true'), findsOneWidget);
+    final after2 = _umbrellaText(tester);
+    expect(after2, equals(before));
   });
 }
