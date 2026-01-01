@@ -17,3 +17,17 @@
 | Yavuz Başkurt | 34543 | Documentation & Submission Lead |
 | Berkay Türeyen | 30763 | Integration & Repository Lead |
 | Nisa Kan     | 31999 | Presentation & Communication Lead |
+
+## ✅ Requirements
+
+- **Flutter SDK:** 3.7.x (Dart 3.7.x)
+- Android Studio / Xcode (emulator/simulator)
+- Firebase project configured (Auth + Firestore)
+
+## 🚀 Setup & Run Instructions
+
+1) Clone the repository:
+```bash
+git clone <REPO_URL>
+cd UMBRELLA
+
