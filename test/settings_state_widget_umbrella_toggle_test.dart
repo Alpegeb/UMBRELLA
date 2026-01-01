@@ -5,46 +5,46 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:umbrella/providers/settings_state.dart';
 
-class _SettingsHarness extends StatelessWidget {
-  const _SettingsHarness({super.key});
+class _UmbrellaToggleHarness extends StatelessWidget {
+  const _UmbrellaToggleHarness({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: ChangeNotifierProvider(
         create: (_) => SettingsState(),
-        child: const _SettingsView(),
+        child: const _UmbrellaToggleView(),
       ),
     );
   }
 }
 
-class _SettingsView extends StatelessWidget {
-  const _SettingsView({super.key});
+class _UmbrellaToggleView extends StatelessWidget {
+  const _UmbrellaToggleView({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<SettingsState>(
       builder: (context, s, _) {
         if (!s.loaded) {
-          return const Scaffold(
-            body: Center(child: Text('loading')),
-          );
+          return const Scaffold(body: Center(child: Text('loading')));
         }
 
         return Scaffold(
           body: Center(
             child: Text(
-              'umbrella:${s.showUmbrellaIndex} celsius:${s.useCelsius}',
-              key: const Key('stateText'),
+              'umbrella:${s.showUmbrellaIndex}',
+              key: const Key('umbrellaText'),
             ),
           ),
           floatingActionButton: FloatingActionButton(
-            key: const Key('toggleCelsius'),
+            key: const Key('toggleUmbrella'),
             onPressed: () async {
-              await context.read<SettingsState>().setUseCelsius(!s.useCelsius);
+              await context
+                  .read<SettingsState>()
+                  .setShowUmbrellaIndex(!s.showUmbrellaIndex);
             },
-            child: const Icon(Icons.swap_horiz),
+            child: const Icon(Icons.umbrella),
           ),
         );
       },
@@ -63,21 +63,24 @@ Future<void> _pumpUntilLoaded(WidgetTester tester) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('SettingsState loads defaults and toggles useCelsius in UI', (tester) async {
+  testWidgets('SettingsState toggles showUmbrellaIndex in UI', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
     // ✅ key verildi -> unused_element_parameter warning biter
-    await tester.pumpWidget(const _SettingsHarness(key: Key('settingsHarness')));
+    await tester.pumpWidget(const _UmbrellaToggleHarness(key: Key('umbrellaHarness')));
     expect(find.text('loading'), findsOneWidget);
 
     await _pumpUntilLoaded(tester);
 
-    expect(find.byKey(const Key('stateText')), findsOneWidget);
-    expect(find.text('umbrella:true celsius:true'), findsOneWidget);
+    expect(find.byKey(const Key('umbrellaText')), findsOneWidget);
+    expect(find.text('umbrella:true'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('toggleCelsius')));
+    await tester.tap(find.byKey(const Key('toggleUmbrella')));
     await tester.pumpAndSettle();
+    expect(find.text('umbrella:false'), findsOneWidget);
 
-    expect(find.text('umbrella:true celsius:false'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('toggleUmbrella')));
+    await tester.pumpAndSettle();
+    expect(find.text('umbrella:true'), findsOneWidget);
   });
 }
