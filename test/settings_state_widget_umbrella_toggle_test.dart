@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:umbrella/providers/settings_state.dart';
 
 class _UmbrellaToggleHarness extends StatelessWidget {
-  const _UmbrellaToggleHarness({super.key});
+  const _UmbrellaToggleHarness();
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class _UmbrellaToggleHarness extends StatelessWidget {
 }
 
 class _UmbrellaToggleView extends StatelessWidget {
-  const _UmbrellaToggleView({super.key});
+  const _UmbrellaToggleView();
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +66,7 @@ void main() {
   testWidgets('SettingsState toggles showUmbrellaIndex in UI', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    // ✅ key verildi -> unused_element_parameter warning biter
-    await tester.pumpWidget(const _UmbrellaToggleHarness(key: Key('umbrellaHarness')));
+    await tester.pumpWidget(const _UmbrellaToggleHarness());
     expect(find.text('loading'), findsOneWidget);
 
     await _pumpUntilLoaded(tester);
