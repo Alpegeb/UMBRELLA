@@ -14,7 +14,7 @@ Future<void> _waitLoaded(SettingsState s) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('SettingsState persists simple preferences (useCelsius, windInKph)', () async {
+  test('SettingsState persists simple preferences (useCelsius, windInKph, showUmbrellaIndex)', () async {
     // Start with non-default values to verify load.
     SharedPreferences.setMockInitialValues({
       'useCelsius': false,
@@ -29,7 +29,7 @@ void main() {
     expect(s1.windInKph, isFalse);
     expect(s1.showUmbrellaIndex, isFalse);
 
-    // Change values (these do NOT call NotificationService)
+    // Change values
     await s1.setUseCelsius(true);
     await s1.setWindInKph(true);
     await s1.setShowUmbrellaIndex(true);
