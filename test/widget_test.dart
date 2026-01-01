@@ -4,6 +4,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('smoke test', () {
-    expect(1, 1);
+    expect(1, equals(1));
   });
 }
