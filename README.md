@@ -41,7 +41,7 @@
 
 ### 1) Clone the repository
 ```bash
-git clone <REPO_URL>
+git clone https://github.com/Alpegeb/UMBRELLA.git
 cd UMBRELLA
 ````
 
@@ -52,17 +52,9 @@ flutter pub get
 ```
 
 ### 3) Firebase configuration
+This project uses **Firebase Authentication** and **Cloud Firestore**.  
+Firebase is already configured in the repository(required config files are included).
 
-This project uses **Firebase Authentication** and **Cloud Firestore**.
-
-* Android: place `google-services.json` under `android/app/`
-* iOS: place `GoogleService-Info.plist` under `ios/Runner/`
-
-(Optional — if you use FlutterFire CLI)
-
-```bash
-flutterfire configure
-```
 
 ### 4) Run the app
 
