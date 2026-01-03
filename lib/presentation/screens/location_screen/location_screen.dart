@@ -61,11 +61,13 @@ class _LocationsViewState extends State<LocationsView> {
   String? _addingPlaceId;
   int _addRequestId = 0;
   List<PlaceSuggestion> _suggestions = [];
+  final FocusNode _searchFocus = FocusNode();
 
   @override
   void dispose() {
     _debounce?.cancel();
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -158,6 +160,7 @@ class _LocationsViewState extends State<LocationsView> {
           _SearchBar(
             theme: theme,
             controller: _searchCtrl,
+            focusNode: _searchFocus,
             onChanged: (v) => _onQueryChanged(v, deviceLocation, isOffline),
             enabled: !isEditing && !isOffline,
           ),
@@ -374,17 +377,18 @@ class _LocationsViewState extends State<LocationsView> {
     if (existingIndex != -1) {
       final messenger = ScaffoldMessenger.of(context);
       messenger.hideCurrentSnackBar();
-        messenger.clearSnackBars();
-        widget.onSelectIndex(existingIndex);
-        _searchCtrl.clear();
-        setState(() {
-          _query = '';
-          _suggestions = [];
-          _searching = false;
-          _searchError = null;
-        });
-        return;
-      }
+      messenger.clearSnackBars();
+      widget.onSelectIndex(existingIndex);
+      if (!mounted) return;
+      _searchCtrl.clear();
+      setState(() {
+        _query = '';
+        _suggestions = [];
+        _searching = false;
+        _searchError = null;
+      });
+      return;
+    }
     final requestId = ++_addRequestId;
     setState(() => _addingPlaceId = suggestion.placeId);
     try {
@@ -400,6 +404,7 @@ class _LocationsViewState extends State<LocationsView> {
           messenger.hideCurrentSnackBar();
           messenger.clearSnackBars();
           widget.onSelectIndex(existingIndex);
+          if (!mounted) return;
           _searchCtrl.clear();
           setState(() {
             _query = '';
@@ -478,27 +483,89 @@ class _LocationsViewState extends State<LocationsView> {
     }
   }
 
-  Future<void> _removeLocation(int index) async {
+  Future<bool> _confirmRemoveLocation(int index) async {
+    if (!mounted) return false;
+    final location = context.read<WeatherState>().locations[index];
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierColor: Colors.black45,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Remove location?'),
-          content: const Text('This location will be removed from your list.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+        final theme = widget.theme;
+        const danger = Color(0xFFE5484D);
+        return Dialog(
+          backgroundColor: theme.cardAlt,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: theme.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: danger.withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: danger),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Remove ${location.name}?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: theme.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You can add it back anytime from search.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: theme.sub),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: theme.border),
+                          foregroundColor: theme.text,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Keep'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: danger,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Remove'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Remove'),
-            ),
-          ],
+          ),
         );
       },
     );
-    if (confirmed != true || !mounted) return;
+    return confirmed == true && mounted;
+  }
+
+  Future<void> _removeLocation(int index) async {
     await context.read<WeatherState>().removeLocation(index);
   }
 
@@ -555,8 +622,18 @@ class _LocationsViewState extends State<LocationsView> {
           Expanded(
             child: ReorderableListView(
               buildDefaultDragHandles: false,
+              proxyDecorator: (child, _, __) => Material(
+                color: Colors.transparent,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: child,
+                ),
+              ),
+              clipBehavior: Clip.hardEdge,
               padding: EdgeInsets.only(
-                bottom: 20 + widget.bottomInset,
+                bottom: widget.bottomInset,
               ),
               onReorder: (oldIndex, newIndex) =>
                   _reorderSaved(oldIndex, newIndex, weather),
@@ -564,20 +641,30 @@ class _LocationsViewState extends State<LocationsView> {
                 final index = i + 1;
                 final location = locations[index];
                 final snapshot = weather.snapshotForIndex(index);
-                return Padding(
-                  key: ValueKey('${location.placeId ?? location.name}_$index'),
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _LocationCard(
+                final itemKey =
+                    ValueKey('${location.placeId ?? location.name}_$index');
+                return KeyedSubtree(
+                  key: itemKey,
+                  child: _SwipeToRemoveTile(
+                    dismissKey: itemKey,
                     theme: theme,
-                    location: location,
-                    snapshot: snapshot,
-                    useCelsius: settings.useCelsius,
-                    isActive: weather.activeIndex == index,
-                    errorMessage: weather.errorForIndex(index),
-                    showEditActions: true,
-                    reorderIndex: i,
+                    onConfirmRemove: () => _confirmRemoveLocation(index),
                     onRemove: () => _removeLocation(index),
-                    onTap: null,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+                      child: _LocationCard(
+                        theme: theme,
+                        location: location,
+                        snapshot: snapshot,
+                        useCelsius: settings.useCelsius,
+                        isActive: weather.activeIndex == index,
+                        errorMessage: weather.errorForIndex(index),
+                        showEditActions: true,
+                        reorderIndex: i,
+                        onRemove: null,
+                        onTap: null,
+                      ),
+                    ),
                   ),
                 );
               }),
@@ -671,12 +758,14 @@ class _SearchBar extends StatelessWidget {
   const _SearchBar({
     required this.theme,
     required this.controller,
+    required this.focusNode,
     required this.onChanged,
     required this.enabled,
   });
 
   final AppTheme theme;
   final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final bool enabled;
 
@@ -696,7 +785,11 @@ class _SearchBar extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               onChanged: onChanged,
+              onTap: () => focusNode.requestFocus(),
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               enabled: enabled,
               style: TextStyle(color: theme.text),
               decoration: InputDecoration(
@@ -906,90 +999,89 @@ class _LocationCard extends StatelessWidget {
         showPlaceholder || !hasRange ? "H:-- L:--" : "H:$hi° L:$lo°";
 
     final content = Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isActive ? theme.accent : theme.border,
-            width: isActive ? 1.5 : 1,
-          ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isActive ? theme.accent : theme.border,
+          width: isActive ? 1.5 : 1,
         ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        location.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: theme.text,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: theme.sub),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (showEditActions)
-                      _EditActions(
-                        theme: theme,
-                        onRemove: onRemove,
-                        reorderIndex: reorderIndex,
-                      ),
                     Text(
-                      tempText,
+                      location.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: theme.text,
-                        fontSize: 48,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: theme.sub),
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    conditionText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (showEditActions)
+                    _EditActions(
+                      theme: theme,
+                      reorderIndex: reorderIndex,
+                    ),
+                  Text(
+                    tempText,
                     style: TextStyle(
-                      color: showPlaceholder ? theme.sub : theme.text,
+                      color: theme.text,
+                      fontSize: 48,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  hiLoText,
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  conditionText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: showPlaceholder ? theme.sub : theme.text,
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
-      );
+              ),
+              const SizedBox(width: 12),
+              Text(
+                hiLoText,
+                style: TextStyle(
+                  color: showPlaceholder ? theme.sub : theme.text,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
 
     if (onTap == null) return content;
 
@@ -1004,12 +1096,10 @@ class _LocationCard extends StatelessWidget {
 class _EditActions extends StatelessWidget {
   const _EditActions({
     required this.theme,
-    required this.onRemove,
     required this.reorderIndex,
   });
 
   final AppTheme theme;
-  final VoidCallback? onRemove;
   final int? reorderIndex;
 
   @override
@@ -1018,23 +1108,157 @@ class _EditActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onRemove,
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Icon(Icons.remove_circle_outline,
-                color: theme.sub, size: 18),
-          ),
-        ),
         ReorderableDragStartListener(
           index: reorderIndex!,
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Icon(Icons.drag_handle, color: theme.sub, size: 18),
+          child: Container(
+            width: 52,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: theme.cardAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.border),
+            ),
+            child: Icon(Icons.drag_indicator, color: theme.sub, size: 20),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SwipeToRemoveTile extends StatefulWidget {
+  const _SwipeToRemoveTile({
+    super.key,
+    required this.dismissKey,
+    required this.theme,
+    required this.child,
+    required this.onConfirmRemove,
+    required this.onRemove,
+  });
+
+  final Key dismissKey;
+  final AppTheme theme;
+  final Widget child;
+  final Future<bool> Function() onConfirmRemove;
+  final VoidCallback onRemove;
+
+  @override
+  State<_SwipeToRemoveTile> createState() => _SwipeToRemoveTileState();
+}
+
+class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
+    with SingleTickerProviderStateMixin {
+  static const double _maxSlide = 96;
+  static const double _snapThreshold = 48;
+  static const Duration _snapDuration = Duration(milliseconds: 180);
+
+  late final AnimationController _controller;
+  Animation<double>? _animation;
+  double _offset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: _snapDuration);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _animateTo(double target) {
+    _controller.stop();
+    final begin = _offset;
+    _animation = Tween<double>(begin: begin, end: target).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    )..addListener(() {
+        setState(() => _offset = _animation!.value);
+      });
+    _controller.forward(from: 0);
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (_controller.isAnimating) _controller.stop();
+    final delta = -details.delta.dx;
+    if (delta == 0) return;
+    setState(() {
+      _offset = (_offset + delta).clamp(0, _maxSlide);
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    if (_offset >= _snapThreshold) {
+      _animateTo(_maxSlide);
+    } else {
+      _animateTo(0);
+    }
+  }
+
+  Future<void> _handleRemovePressed() async {
+    if (_offset == 0) return;
+    final confirmed = await widget.onConfirmRemove();
+    if (!mounted) return;
+    if (confirmed) {
+      widget.onRemove();
+    } else {
+      _animateTo(0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    const removeColor = Color(0xFFE5484D);
+    return Container(
+      key: widget.dismissKey,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: removeColor,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 14),
+              child: TextButton.icon(
+                onPressed: _handleRemovePressed,
+                icon: const Icon(Icons.delete_outline, color: Colors.white),
+                label: Text(
+                  'Remove',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  backgroundColor: Colors.white.withOpacity(0.14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onHorizontalDragUpdate: _handleDragUpdate,
+            onHorizontalDragEnd: _handleDragEnd,
+            onHorizontalDragCancel: () => _animateTo(0),
+            behavior: HitTestBehavior.translucent,
+            child: Transform.translate(
+              offset: Offset(-_offset, 0),
+              child: widget.child,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

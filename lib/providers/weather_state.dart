@@ -176,7 +176,6 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
     final item = _savedLocations.removeAt(oldSaved);
     _savedLocations.insert(newSaved, item);
     _hasLocalChanges = true;
-    await _persistSavedLocations();
     _rebuildLocations();
     _moveInList(_snapshots, oldIndex, newIndex);
     _moveInList(_errors, oldIndex, newIndex);
@@ -189,6 +188,7 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
       _activeIndex += 1;
     }
     notifyListeners();
+    await _persistSavedLocations();
   }
 
   void updateActivePage(int pageIndex) {
@@ -650,8 +650,18 @@ class WeatherState extends ChangeNotifier with WidgetsBindingObserver {
   void _moveInList<T>(List<T> list, int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= list.length) return;
     if (newIndex < 0 || newIndex >= list.length) return;
-    final item = list.removeAt(oldIndex);
-    list.insert(newIndex, item);
+    if (oldIndex == newIndex) return;
+    final item = list[oldIndex];
+    if (oldIndex < newIndex) {
+      for (var i = oldIndex; i < newIndex; i++) {
+        list[i] = list[i + 1];
+      }
+    } else {
+      for (var i = oldIndex; i > newIndex; i--) {
+        list[i] = list[i - 1];
+      }
+    }
+    list[newIndex] = item;
   }
 
   String _resolveNearestCityName(double lat, double lon) {

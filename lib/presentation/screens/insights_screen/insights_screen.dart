@@ -71,7 +71,7 @@ class InsightsScreen extends StatelessWidget {
                       icon: Icons.umbrella_rounded,
                       title: "PLAN AHEAD",
                       text:
-                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${index >= 6 ? "A compact umbrella might help later." : isNight ? "Rain looks unlikely tonight." : "Rain looks unlikely today."}",
+                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${index >= 6 ? "A compact umbrella could be a good backup." : isNight ? "Rain looks unlikely tonight." : "Rain looks unlikely today."}",
                     ),
                   ],
                 ),

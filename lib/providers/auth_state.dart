@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthState extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  late final Stream<User?> _authStateStream = _auth.authStateChanges();
+  static final _emailRegex = RegExp(
+    r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+  );
 
   bool _isLoading = false;
   String? _error;
@@ -11,7 +15,7 @@ class AuthState extends ChangeNotifier {
   String? get error => _error;
 
   User? get user => _auth.currentUser;
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges => _authStateStream;
 
   void _setLoading(bool v) {
     _isLoading = v;
@@ -31,6 +35,10 @@ class AuthState extends ChangeNotifier {
 
     if (e.isEmpty) {
       _setError('Please enter an email.');
+      return false;
+    }
+    if (!_emailRegex.hasMatch(e)) {
+      _setError('Please enter a valid email.');
       return false;
     }
     if (p.isEmpty) {
@@ -61,6 +69,10 @@ class AuthState extends ChangeNotifier {
 
     if (e.isEmpty) {
       _setError('Please enter an email.');
+      return false;
+    }
+    if (!_emailRegex.hasMatch(e)) {
+      _setError('Please enter a valid email.');
       return false;
     }
     if (p.isEmpty) {

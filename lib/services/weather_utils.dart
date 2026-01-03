@@ -41,9 +41,9 @@ String displayCondition(String raw) {
 
 double umbrellaIndex(CurrentWeather current) {
   final precip = normalizeProbability(current.precipProbability);
-  final wind = (current.windSpeedKph / 40.0).clamp(0.0, 1.0);
-  final gust = (current.windGustKph / 60.0).clamp(0.0, 1.0);
-  final score = 10.0 - (precip * 6.5) - (wind * 2.0) - (gust * 1.5);
+  final wind = (current.windSpeedKph / 50.0).clamp(0.0, 1.0);
+  final gust = (current.windGustKph / 70.0).clamp(0.0, 1.0);
+  final score = (precip * 7.0) + (wind * 2.0) + (gust * 1.0);
   return score.clamp(0.0, 10.0);
 }
 
@@ -86,21 +86,21 @@ String temperatureComfortText(
     sunset: sunset,
   );
   if (tempC <= 0) return 'Freezing conditions. Dress in layers.';
-  if (tempC < 8) return 'Cold and crisp. A warm jacket helps.';
-  if (tempC < 16) return 'Cool and comfortable for a light jacket.';
+  if (tempC < 8) return 'Cold air outside. A warm jacket will feel better.';
+  if (tempC < 16) return 'Cool and steady. A light jacket is a good match.';
   if (tempC < 24) {
     return isNight
-        ? 'Mild night air — great for a light layer.'
-        : 'Mild and pleasant. Great for a walk.';
+        ? 'Mild night air — a light layer should be enough.'
+        : 'Mild and pleasant. Nice weather for a walk.';
   }
   if (tempC < 30) {
     return isNight
-        ? 'Warm night ahead. Keep a drink nearby.'
-        : 'Warm and bright. Stay hydrated.';
+        ? 'Warm night ahead. Keep water nearby.'
+        : 'Warm and bright. Hydrate and take breaks.';
   }
   return isNight
       ? 'Hot night ahead. Keep cool indoors if possible.'
-      : 'Hot conditions. Seek shade when possible.';
+      : 'Hot conditions. Shade and water will help.';
 }
 
 String skyInsightText(
@@ -118,13 +118,13 @@ String skyInsightText(
 
   if (c.contains('rain') || c.contains('storm')) {
     return isNight
-        ? 'Rainy skies tonight could slow evening plans.'
-        : 'Rainy conditions could slow outdoor plans.';
+        ? 'Rain tonight could slow late plans. Give yourself extra time.'
+        : 'Rain could slow outdoor plans. A quick backup helps.';
   }
   if (c.contains('cloud') || c.contains('overcast')) {
     return isNight
-        ? 'Cloudy skies tonight keep things calm and dim.'
-        : 'Cloudy skies reduce glare, improving focus indoors.';
+        ? 'Cloudy night skies keep things calm and dim.'
+        : 'Cloudy skies reduce glare, which can feel easier on the eyes.';
   }
   if (c.contains('sun') || c.contains('clear')) {
     return isNight
@@ -132,8 +132,8 @@ String skyInsightText(
         : 'Bright skies boost mood and visibility outdoors.';
   }
   return isNight
-      ? 'Changing skies tonight — expect a quiet evening.'
-      : 'Mixed skies with changing conditions today.';
+      ? 'Changing skies tonight — keep plans flexible.'
+      : 'Mixed skies today — a flexible plan works best.';
 }
 
 bool _isNightTime(
@@ -150,10 +150,10 @@ bool _isNightTime(
 String humidityInsightText(double? humidity) {
   if (humidity == null) return 'Humidity data is unavailable right now.';
   final pct = (humidity * 100).round();
-  if (pct < 35) return 'Dry air ($pct%). Keep skin hydrated.';
-  if (pct < 60) return 'Comfortable humidity ($pct%).';
-  if (pct < 80) return 'Humid air ($pct%). Stay cool.';
-  return 'Very humid ($pct%). Take it easy outdoors.';
+  if (pct < 35) return 'Dry air ($pct%). Water and lip balm help.';
+  if (pct < 60) return 'Comfortable humidity ($pct%). Easy breathing today.';
+  if (pct < 80) return 'Humid air ($pct%). Light layers feel better.';
+  return 'Very humid ($pct%). Go easy and stay hydrated.';
 }
 
 DailyWeather? dailyForDate(List<DailyWeather> daily, DateTime date) {
