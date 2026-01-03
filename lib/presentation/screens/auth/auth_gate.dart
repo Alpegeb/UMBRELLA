@@ -21,7 +21,7 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthState>();
+    final auth = context.read<AuthState>();
 
     return StreamBuilder(
       stream: auth.authStateChanges,

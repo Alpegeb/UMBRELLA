@@ -115,6 +115,9 @@ class _MainScreenState extends State<MainScreen> {
             child: PageView.builder(
               controller: _pageController,
               onPageChanged: _handlePageChanged,
+              physics: settings.locationsEditing
+                  ? const NeverScrollableScrollPhysics()
+                  : const BouncingScrollPhysics(),
               itemCount: pageCount,
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -1432,12 +1435,9 @@ class _WindMeta extends StatelessWidget {
     final speedText =
         windSpeed == null ? "--" : windLabel(windSpeed!, windInKph);
     final gustText = windGust == null ? "--" : windLabel(windGust!, windInKph);
-    final flowDegrees = windDirectionDegrees == null
-        ? null
-        : _windFlowDegrees(windDirectionDegrees!);
-    final directionText = flowDegrees == null
+    final directionText = windDirectionDegrees == null
         ? "--"
-        : "$flowDegrees° ${windDirectionLabel(flowDegrees)}";
+        : "$windDirectionDegrees° ${windDirectionLabel(windDirectionDegrees!)}";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1704,11 +1704,8 @@ class _WindMapCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasWind = windSpeed != null && windDirectionDegrees != null;
-    final flowDegrees = windDirectionDegrees == null
-        ? null
-        : _windFlowDegrees(windDirectionDegrees!);
     final label = hasWind
-        ? "Wind ${windLabel(windSpeed!, windInKph)} • ${windDirectionLabel(flowDegrees!)}"
+        ? "Wind ${windLabel(windSpeed!, windInKph)} • ${windDirectionLabel(windDirectionDegrees!)}"
         : "Wind --";
 
     return Container(
