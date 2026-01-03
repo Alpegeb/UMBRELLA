@@ -509,7 +509,7 @@ class _LocationsViewState extends State<LocationsView> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: danger.withOpacity(0.16),
+            color: danger.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(Icons.delete_outline, color: danger),
@@ -645,11 +645,12 @@ class _LocationsViewState extends State<LocationsView> {
                     ValueKey('${location.placeId ?? location.name}_$index');
                 return KeyedSubtree(
                   key: itemKey,
-                  child: _SwipeToRemoveTile(
-                    dismissKey: itemKey,
-                    theme: theme,
-                    onConfirmRemove: () => _confirmRemoveLocation(index),
-                    onRemove: () => _removeLocation(index),
+            child: _SwipeToRemoveTile(
+              key: itemKey,
+              dismissKey: itemKey,
+              theme: theme,
+              onConfirmRemove: () => _confirmRemoveLocation(index),
+              onRemove: () => _removeLocation(index),
                     child: Padding(
                       padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
                       child: _LocationCard(
@@ -1210,7 +1211,6 @@ class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
 
   @override
   Widget build(BuildContext context) {
-    final theme = widget.theme;
     const removeColor = Color(0xFFE5484D);
     return Container(
       key: widget.dismissKey,
@@ -1239,7 +1239,7 @@ class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
                 ),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  backgroundColor: Colors.white.withOpacity(0.14),
+                backgroundColor: Colors.white.withValues(alpha: 0.14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -112,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       end: Alignment.bottomRight,
                       colors: [
                         theme.bg,
-                        theme.cardAlt.withOpacity(0.5),
+                        theme.cardAlt.withValues(alpha: 0.5),
                       ],
                     ),
                   ),
@@ -128,7 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        primary.withOpacity(0.28),
+                        primary.withValues(alpha: 0.28),
                         Colors.transparent,
                       ],
                     ),
@@ -145,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        glow.withOpacity(0.2),
+                        glow.withValues(alpha: 0.2),
                         Colors.transparent,
                       ],
                     ),
@@ -423,7 +421,7 @@ class _GradientActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color bg = enabled
         ? Colors.transparent
-        : Theme.of(context).disabledColor.withOpacity(0.2);
+        : Theme.of(context).disabledColor.withValues(alpha: 0.2);
     return SizedBox(
       width: double.infinity,
       height: 52,
