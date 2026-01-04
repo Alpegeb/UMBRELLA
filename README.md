@@ -1,22 +1,18 @@
-# 🌦️UMBRELLA☂️
+# 🌦️ UMBRELLA ☂️
 
-
-**Umbrella** is a Flutter-based mobile application that helps users plan their day around the weather with clear, practical forecasts and timely reminders. It provides accurate, easy-to-read updates about upcoming rain, temperature changes, and overall comfort levels — helping users make smarter decisions about commuting, travel, and outdoor plans.
-
+**UMBRELLA** is a Flutter-based mobile application that helps users plan their day around the weather with clear, practical forecasts and timely reminders. It provides accurate, easy-to-read updates about upcoming rain, temperature changes, and overall comfort levels — helping users make smarter decisions about commuting, travel, and outdoor plans.
 
 ---
 
-
 ## 👥 Team Members
 
-
-| Name         | Student ID | Role |
-|--------------|-------|------|
+| Name | Student ID | Role |
+|------|------------|------|
 | Alp Ege Bulutoğlu | 32397 | Project Coordinator |
 | Aysın Nur İpek | 32393 | Testing & QA Lead |
 | Yavuz Başkurt | 34543 | Documentation & Submission Lead |
 | Berkay Türeyen | 30763 | Integration & Repository Lead |
-| Nisa Kan     | 31999 | Presentation & Communication Lead |
+| Nisa Kan | 31999 | Presentation & Communication Lead |
 
 ---
 
@@ -29,6 +25,7 @@
 - 5-minute demo video (Google Drive link)
 
 ---
+
 ## ✅ Requirements
 - Flutter SDK: **3.7.x**
 - Dart: **3.7.x**
@@ -52,9 +49,9 @@ flutter pub get
 ```
 
 ### 3) Firebase configuration
-This project uses **Firebase Authentication** and **Cloud Firestore**.  
-Firebase is already configured in the repository(required config files are included).
 
+This project uses **Firebase Authentication** and **Cloud Firestore**.
+✅ Firebase is already configured in the repository (required config files are included).
 
 ### 4) Run the app
 
@@ -72,6 +69,12 @@ Run all tests:
 flutter test
 ```
 
+Integration test (optional):
+
+```bash
+flutter test integration_test
+```
+
 ### What our tests cover
 
 We implemented at least **2 meaningful tests** (1 unit test + 1 widget test) and ensured `flutter test` passes successfully.
@@ -85,6 +88,9 @@ We implemented at least **2 meaningful tests** (1 unit test + 1 widget test) and
 3. **Smoke Test — `test/widget_test.dart`**
    Simple sanity check to ensure the test pipeline runs correctly.
 
+4. **Integration Test — `integration_test/app_launch_test.dart`**
+   End-to-end smoke test that launches a minimal app entrypoint and verifies the app starts successfully.
+
 ---
 
 ## Known Limitations / Notes
@@ -96,11 +102,8 @@ We implemented at least **2 meaningful tests** (1 unit test + 1 widget test) and
 
 ## 📽️ Video Demo
 
-* Google Drive video link: paste link here**
+* Google Drive video link: **PASTE LINK HERE**
 
 ```
 
-
 ```
-
-
