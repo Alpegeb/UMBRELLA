@@ -44,7 +44,6 @@ class _UmbrellaToggleView extends StatelessWidget {
                   .read<SettingsState>()
                   .setShowUmbrellaIndex(!s.showUmbrellaIndex);
             },
-            // garanti ikon (her sürümde var)
             child: const Icon(Icons.beach_access),
           ),
         );
@@ -70,23 +69,25 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Tapping FAB toggles showUmbrellaIndex text', (tester) async {
+    // Arrange
     SharedPreferences.setMockInitialValues({});
-
     await tester.pumpWidget(const _UmbrellaToggleHarness());
     expect(find.text('loading'), findsOneWidget);
 
     await _pumpUntilLoaded(tester);
-
     final before = _umbrellaText(tester);
 
+    // Act
     await tester.tap(find.byKey(const Key('toggleUmbrella')));
     await tester.pumpAndSettle();
     final after1 = _umbrellaText(tester);
-    expect(after1, isNot(equals(before)));
 
     await tester.tap(find.byKey(const Key('toggleUmbrella')));
     await tester.pumpAndSettle();
     final after2 = _umbrellaText(tester);
+
+    // Assert
+    expect(after1, isNot(equals(before)));
     expect(after2, equals(before));
   });
 }
