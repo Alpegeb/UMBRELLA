@@ -75,14 +75,18 @@ void main() {
     expect(find.text('loading'), findsOneWidget);
 
     await _pumpUntilLoaded(tester);
+    await tester.pumpAndSettle();
     final before = _umbrellaText(tester);
 
     // Act
-    await tester.tap(find.byKey(const Key('toggleUmbrella')));
+    final toggle = find.byKey(const Key('toggleUmbrella'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
     await tester.pumpAndSettle();
     final after1 = _umbrellaText(tester);
 
-    await tester.tap(find.byKey(const Key('toggleUmbrella')));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
     await tester.pumpAndSettle();
     final after2 = _umbrellaText(tester);
 
