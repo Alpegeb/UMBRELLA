@@ -1,4 +1,4 @@
-import 'package:umbrella/main_test.dart' as test_app;
+import 'package:flutter/material.dart';
 import 'router/app_router.dart';
 
 class UmbrellaAppTest extends StatelessWidget {
@@ -16,3 +16,4 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const UmbrellaAppTest());
 }
+
