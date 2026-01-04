@@ -232,7 +232,6 @@ class _MainScreenBodyState extends State<MainScreenBody> {
     final conditionIcon = showPlaceholder
         ? Icons.cloud_queue
         : _iconForCondition(current.condition);
-    final umbrella = showPlaceholder ? null : umbrellaIndex(current);
     final summary =
         showPlaceholder ? "" : summaryText(current, windInKph: windInKph);
     final tempDisplay = tempValue(current.tempC, useCelsius).round();
@@ -250,6 +249,16 @@ class _MainScreenBodyState extends State<MainScreenBody> {
     final avgHighC = showPlaceholder
         ? null
         : _averageDouble(dailyOutlook.map((d) => d.maxTempC).toList());
+    final avgLowC = showPlaceholder
+        ? null
+        : _averageDouble(dailyOutlook.map((d) => d.minTempC).toList());
+    final quality = showPlaceholder
+        ? null
+        : weatherQualityIndex(
+            current,
+            avgHighC: avgHighC,
+            avgLowC: avgLowC,
+          );
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     final scrollBottomPadding =
         20 + _kFloatingBarHeight + _kFloatingBarMargin + bottomInset;
@@ -273,7 +282,7 @@ class _MainScreenBodyState extends State<MainScreenBody> {
         padding: const EdgeInsets.fromLTRB(16, 36, 16, 16),
         child: Column(
           children: [
-            if (showUmbrellaIndex && umbrella != null)
+            if (showUmbrellaIndex && quality != null)
               GestureDetector(
                 onTap: () {
                   _activateLocation();
@@ -284,13 +293,14 @@ class _MainScreenBodyState extends State<MainScreenBody> {
                     ),
                   );
                 },
-                child: _UmbrellaIndexLine(
+                child: _WeatherQualityLine(
                   theme: theme,
-                  index: umbrella,
+                  index: quality,
+                  feelsLikeC: showPlaceholder ? null : current.feelsLikeC,
                   t: _t,
                 ),
               ),
-            SizedBox(height: showUmbrellaIndex && umbrella != null ? 10 : 0),
+            SizedBox(height: showUmbrellaIndex && quality != null ? 10 : 0),
             Transform.translate(
               offset: Offset(0, tempDy),
               child: _Header(
@@ -532,15 +542,17 @@ class _MainScreenBodyState extends State<MainScreenBody> {
   }
 }
 
-class _UmbrellaIndexLine extends StatelessWidget {
-  const _UmbrellaIndexLine({
+class _WeatherQualityLine extends StatelessWidget {
+  const _WeatherQualityLine({
     required this.theme,
     required this.index,
+    required this.feelsLikeC,
     required this.t,
   });
 
   final AppTheme theme;
   final double index;
+  final double? feelsLikeC;
   final double t;
 
   static const Color kIndicatorColor = Color(0xFF00E676);
@@ -586,7 +598,7 @@ class _UmbrellaIndexLine extends StatelessWidget {
                   Icon(Icons.umbrella_outlined, color: kIndicatorColor),
                   const SizedBox(width: 8),
                   Text(
-                    "Umbrella Index",
+                    "Weather Quality",
                     style: TextStyle(
                       color: theme.sub,
                       fontWeight: FontWeight.w700,
@@ -665,10 +677,7 @@ class _UmbrellaIndexLine extends StatelessWidget {
   }
 
   String _caption(double idx) {
-    if (idx >= 8.5) return "Sunny & calm — no umbrella needed.";
-    if (idx >= 6.0) return "Mostly fine — brief showers possible.";
-    if (idx >= 3.5) return "Changeable — carry a compact umbrella.";
-    return "Wet & windy — definitely bring an umbrella.";
+    return weatherQualityCaption(idx, feelsLikeC: feelsLikeC);
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'weather_models.dart';
 import 'weather_units.dart';
 
@@ -39,12 +41,218 @@ String displayCondition(String raw) {
   return titled.isEmpty ? 'Unknown' : titled;
 }
 
-double umbrellaIndex(CurrentWeather current) {
-  final precip = normalizeProbability(current.precipProbability);
-  final wind = (current.windSpeedKph / 50.0).clamp(0.0, 1.0);
-  final gust = (current.windGustKph / 70.0).clamp(0.0, 1.0);
-  final score = (precip * 7.0) + (wind * 2.0) + (gust * 1.0);
-  return score.clamp(0.0, 10.0);
+double weatherQualityIndex(
+  CurrentWeather current, {
+  double? avgHighC,
+  double? avgLowC,
+}) {
+  final idealC = _comfortIdealC(avgHighC, avgLowC);
+  final thermal = _thermalComfortScore(current.feelsLikeC, idealC);
+  final humidity = _humidityScore(current.humidity, current.feelsLikeC);
+  final comfort = ((thermal * 0.8) + (humidity * 0.2)).clamp(0.0, 1.0);
+
+  final precipScore =
+      _precipScore(current.precipProbability, current.precipMm);
+  final windScore = _windScore(current.windSpeedKph, current.windGustKph);
+  final uvScore = _uvScore(current.uvIndex);
+  final visibilityScore = _visibilityScore(current.visibilityKm);
+  final hazardScore = _hazardScore(current.condition);
+
+  final score = (comfort * 0.6) +
+      (precipScore * 0.15) +
+      (windScore * 0.1) +
+      (uvScore * 0.07) +
+      (visibilityScore * 0.05) +
+      (hazardScore * 0.03);
+  return (score * 10.0).clamp(0.0, 10.0);
+}
+
+double _comfortIdealC(double? avgHighC, double? avgLowC) {
+  if (avgHighC == null || avgLowC == null) return 22.0;
+  final seasonalMean = (avgHighC + avgLowC) / 2.0;
+  final seasonalIdeal = seasonalMean.clamp(10.0, 28.0);
+  return (seasonalIdeal * 0.6) + (22.0 * 0.4);
+}
+
+double _thermalComfortScore(double feelsLikeC, double idealC) {
+  final delta = (feelsLikeC - idealC).abs();
+  const sigma = 9.0;
+  final exponent = -(delta * delta) / (2 * sigma * sigma);
+  return math.exp(exponent).clamp(0.0, 1.0);
+}
+
+double _humidityScore(double? humidity, double feelsLikeC) {
+  if (humidity == null) return 0.9;
+  final pct = (humidity * 100).clamp(0.0, 100.0);
+  final distance = (pct - 50).abs();
+  final base = (1.0 - (distance / 60.0)).clamp(0.5, 1.0);
+  if (pct > 70 && feelsLikeC >= 24) {
+    final extra = (pct - 70) / 30.0;
+    return (base - (extra * 0.2)).clamp(0.4, 1.0);
+  }
+  if (pct < 25 && feelsLikeC <= 10) {
+    return (base - 0.08).clamp(0.4, 1.0);
+  }
+  return base;
+}
+
+double _precipScore(double precipProbability, double? precipMm) {
+  final pop = normalizeProbability(precipProbability);
+  final amountImpact = _precipAmountImpact(precipMm);
+  final risk = (pop * 0.7) + (amountImpact * 0.3);
+  final softened = math.pow(risk, 1.15).toDouble();
+  return (1.0 - softened).clamp(0.0, 1.0);
+}
+
+double _precipAmountImpact(double? precipMm) {
+  if (precipMm == null) return 0.0;
+  if (precipMm <= 0.2) return 0.0;
+  if (precipMm <= 1.0) return 0.2;
+  if (precipMm <= 4.0) return 0.5;
+  if (precipMm <= 10.0) return 0.8;
+  return 1.0;
+}
+
+double _windScore(double windSpeedKph, double windGustKph) {
+  final effectiveWind = windGustKph > windSpeedKph
+      ? (windSpeedKph * 0.7 + windGustKph * 0.3)
+      : windSpeedKph;
+  final x = (effectiveWind - 28.0) / 6.0;
+  return (1.0 / (1.0 + math.exp(x))).clamp(0.0, 1.0);
+}
+
+double _uvScore(int? uvIndex) {
+  if (uvIndex == null) return 0.9;
+  if (uvIndex <= 2) return 1.0;
+  if (uvIndex <= 5) return 0.9;
+  if (uvIndex <= 7) return 0.78;
+  if (uvIndex <= 10) return 0.6;
+  return 0.45;
+}
+
+double _visibilityScore(double? visibilityKm) {
+  if (visibilityKm == null) return 0.9;
+  if (visibilityKm >= 10) return 1.0;
+  if (visibilityKm >= 6) return 0.85;
+  if (visibilityKm >= 3) return 0.7;
+  if (visibilityKm >= 1) return 0.5;
+  return 0.3;
+}
+
+double _hazardScore(String condition) {
+  final c = condition.toLowerCase();
+  if (c.contains('thunder') || c.contains('storm')) return 0.4;
+  if (c.contains('hail') || c.contains('sleet')) return 0.55;
+  if (c.contains('snow')) return 0.6;
+  if (c.contains('fog') || c.contains('mist') || c.contains('haze')) {
+    return 0.7;
+  }
+  return 1.0;
+}
+
+String weatherQualityCaption(double idx, {double? feelsLikeC}) {
+  final cold = feelsLikeC != null && feelsLikeC <= 10;
+  final cool = feelsLikeC != null && feelsLikeC > 10 && feelsLikeC <= 16;
+  final warm = feelsLikeC != null && feelsLikeC >= 26;
+  final hot = feelsLikeC != null && feelsLikeC >= 30;
+
+  if (idx >= 9.0) {
+    if (cold) return "Crisp and clear — bundle up and enjoy it.";
+    if (hot) return "Glorious but hot — shade and water help.";
+    return "A day you want to bottle — clear, calm, and easy.";
+  }
+  if (idx >= 7.5) {
+    if (cold) return "Bright but chilly — a warm layer helps.";
+    if (warm) return "Warm and steady — hydrate if you're out.";
+    return "Comfortable and bright — great for being outside.";
+  }
+  if (idx >= 6.0) {
+    if (cold) return "Cool but calm — a warm layer is the move.";
+    if (cool) return "Cool and decent — a light jacket works.";
+    if (warm) return "Warm with a bit of edge — take water along.";
+    return "Pretty decent — a light layer might be enough.";
+  }
+  if (idx >= 4.5) {
+    if (cold) return "Chilly or mixed — dress for quick stops.";
+    return "Mixed bag — fine for errands, less for long hangs.";
+  }
+  if (idx >= 3.0) {
+    if (cold) return "Cold and blustery — bundle up if you head out.";
+    return "Blustery or damp — take it slow out there.";
+  }
+  return cold
+      ? "Cold and rough — cozy plans feel right."
+      : "Rough weather today — cozy plans feel right.";
+}
+
+String weatherQualityInsight(
+  double idx, {
+  required bool isNight,
+  double? feelsLikeC,
+}) {
+  final cold = feelsLikeC != null && feelsLikeC <= 10;
+  final cool = feelsLikeC != null && feelsLikeC > 10 && feelsLikeC <= 16;
+  final warm = feelsLikeC != null && feelsLikeC >= 26;
+  final hot = feelsLikeC != null && feelsLikeC >= 30;
+
+  if (idx >= 9.0) {
+    if (cold) {
+      return isNight
+          ? "Clear, crisp night — dress warm if you head out."
+          : "Clear and crisp — bundle up if you're stepping out.";
+    }
+    if (hot) {
+      return isNight
+          ? "Warm, calm night — take it easy and stay hydrated."
+          : "Bright and hot — shade and water make it nicer.";
+    }
+    return isNight
+        ? "Clear night and calm air — a great time for a walk."
+        : "Clear, calm, and comfortable — if you can, get outside.";
+  }
+  if (idx >= 7.5) {
+    if (cold) {
+      return isNight
+          ? "Chilly night but calm — a warm layer goes a long way."
+          : "Bright but chilly — a warm layer makes it easy.";
+    }
+    if (warm) {
+      return isNight
+          ? "Warm night air and calm winds — easy evening plans."
+          : "Warm and steady — hydrate if you're out for long.";
+    }
+    return isNight
+        ? "Mild night air with little fuss — easy evening plans."
+        : "Comfortable air and steady skies — a solid day to be out.";
+  }
+  if (idx >= 6.0) {
+    if (cold) {
+      return isNight
+          ? "Mostly fine tonight — still chilly, so layer up."
+          : "Mostly fine today — still chilly, so layer up.";
+    }
+    if (cool) {
+      return isNight
+          ? "Mostly fine tonight — a light jacket should do."
+          : "Mostly fine today — a light jacket should do.";
+    }
+    return isNight
+        ? "Mostly fine tonight — a light layer should do."
+        : "Mostly fine today — a light layer should do.";
+  }
+  if (idx >= 4.5) {
+    return isNight
+        ? "A bit unsettled tonight — keep plans flexible."
+        : "A bit unsettled — quick plans are the sweet spot.";
+  }
+  if (idx >= 3.0) {
+    return isNight
+        ? "Wind or damp air — wrap up if you head out."
+        : "Wind or damp air — not the coziest day outside.";
+  }
+  return isNight
+      ? "Tough night weather — a cozy indoor plan sounds good."
+      : "Tough weather — indoor plans might feel better.";
 }
 
 String summaryText(CurrentWeather current, {required bool windInKph}) {
