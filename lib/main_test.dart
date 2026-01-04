@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:umbrella/main_test.dart' as test_app;
 import 'router/app_router.dart';
 
 class UmbrellaAppTest extends StatelessWidget {
