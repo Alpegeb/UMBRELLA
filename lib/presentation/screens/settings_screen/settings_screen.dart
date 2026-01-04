@@ -121,8 +121,8 @@ class SettingsPage extends StatelessWidget {
               _SwitchTile(
                 color: colors,
                 icon: Icons.umbrella_outlined,
-                title: "Show Umbrella Index",
-                subtitle: "Display the top index bar",
+                title: "Show Weather Quality",
+                subtitle: "Display the quality index bar",
                 value: settings.showUmbrellaIndex,
                 onChanged: settings.setShowUmbrellaIndex,
                 labelStyle: labelStyle,

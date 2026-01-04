@@ -12,8 +12,25 @@ class InsightsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final snapshot = context.watch<WeatherState>().snapshot;
     final current = snapshot.current;
-    final index = umbrellaIndex(current);
     final now = DateTime.now();
+    final dailyOutlook = upcomingDaily(snapshot.daily, now: now, maxDays: 5);
+    final avgHighC = dailyOutlook.isEmpty
+        ? null
+        : dailyOutlook
+            .map((d) => d.maxTempC)
+            .reduce((a, b) => a + b) /
+            dailyOutlook.length;
+    final avgLowC = dailyOutlook.isEmpty
+        ? null
+        : dailyOutlook
+            .map((d) => d.minTempC)
+            .reduce((a, b) => a + b) /
+            dailyOutlook.length;
+    final index = weatherQualityIndex(
+      current,
+      avgHighC: avgHighC,
+      avgLowC: avgLowC,
+    );
     final today = dailyForDate(snapshot.daily, now);
     final sunrise = today?.sunriseTime;
     final sunset = today?.sunsetTime;
@@ -69,9 +86,9 @@ class InsightsScreen extends StatelessWidget {
                     _Insight(
                       theme: theme,
                       icon: Icons.umbrella_rounded,
-                      title: "PLAN AHEAD",
+                      title: "WEATHER QUALITY",
                       text:
-                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${index >= 6 ? "A compact umbrella could be a good backup." : isNight ? "Rain looks unlikely tonight." : "Rain looks unlikely today."}",
+                          "Weather Quality is ${index.toStringAsFixed(1)}/10. ${weatherQualityInsight(index, isNight: isNight, feelsLikeC: current.feelsLikeC)}",
                     ),
                   ],
                 ),
