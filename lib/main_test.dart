@@ -8,7 +8,10 @@ class UmbrellaIntegrationTestApp extends StatelessWidget {
     return const MaterialApp(
       home: Scaffold(
         body: Center(
-          child: Text('integration-ready', key: Key('integrationReady')),
+          child: Text(
+            'integration-ready',
+            key: Key('integrationReady'),
+          ),
         ),
       ),
     );
