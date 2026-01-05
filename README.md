@@ -102,8 +102,8 @@ We implemented at least **2 meaningful tests** (1 unit test + 1 widget test) and
 
 ## 📽️ Video Demo
 
-* Google Drive video link: **PASTE LINK HERE**
+* Google Drive video link:
 
 ```
-
+https://drive.google.com/drive/folders/1JNxIXDQkgdzMutTdpftluHGEoEYKak8h?usp=sharing
 ```
