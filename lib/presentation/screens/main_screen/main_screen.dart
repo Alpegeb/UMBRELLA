@@ -258,6 +258,10 @@ class _MainScreenBodyState extends State<MainScreenBody> {
             current,
             avgHighC: avgHighC,
             avgLowC: avgLowC,
+            hourly: hourly,
+            daily: daily,
+            airQuality: snapshot.airQuality,
+            now: now,
           );
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     final scrollBottomPadding =
@@ -598,7 +602,7 @@ class _WeatherQualityLine extends StatelessWidget {
                   Icon(Icons.umbrella_outlined, color: kIndicatorColor),
                   const SizedBox(width: 8),
                   Text(
-                    "Weather Quality",
+                    "Umbrella Index",
                     style: TextStyle(
                       color: theme.sub,
                       fontWeight: FontWeight.w700,
@@ -1117,10 +1121,17 @@ class _DayRow extends StatelessWidget {
           const Spacer(),
           SizedBox(
             width: 60,
-            child: Text(
-              hiLoText,
-              textAlign: TextAlign.end,
-              style: TextStyle(color: theme.sub),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                hiLoText,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                textAlign: TextAlign.end,
+                style: TextStyle(color: theme.sub),
+              ),
             ),
           ),
         ],
@@ -1317,14 +1328,20 @@ class _AveragesPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasData = todayHighC != null && avgHighC != null;
     final delta = hasData ? todayHighC! - avgHighC! : 0.0;
-    final sign = delta >= 0 ? "+" : "-";
-    final deltaValue =
+    final deltaRounded =
         hasData ? tempValue(delta.abs(), useCelsius).round() : null;
+    final isDeltaZero = deltaRounded == 0;
+    final sign = delta >= 0 ? "+" : "-";
     final avgLabel = hasData ? tempLabel(avgHighC!, useCelsius) : "--";
-    final deltaText = hasData ? "$sign$deltaValue°" : "--";
-    final deltaColor = delta < 0 ? theme.rainy : theme.sunny;
+    final deltaText =
+        hasData ? (isDeltaZero ? "0°" : "$sign$deltaRounded°") : "--";
+    final deltaColor = !hasData || isDeltaZero
+        ? theme.sub
+        : (delta < 0 ? theme.rainy : theme.sunny);
     final lineText = hasData
-        ? "Today’s high is $sign$deltaValue° vs avg $avgLabel."
+        ? (isDeltaZero
+            ? "Today’s high matches the avg $avgLabel."
+            : "Today’s high is $sign$deltaRounded° vs avg $avgLabel.")
         : "Outlook data is updating.";
 
     return Container(

@@ -9,8 +9,8 @@ import '../about_screen/about_screen.dart';
 import '../feedback_screen/feedback_screen.dart';
 import '../notification_screen/notification_screen.dart';
 
-const String _kAppVersionLabel = '0.2.0';
-const String _kAppBuildLabel = '2';
+const String _kAppVersionLabel = '1.0.0';
+const String _kAppBuildLabel = '3';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -102,6 +102,10 @@ class SettingsPage extends StatelessWidget {
     final labelStyle = getLabelStyle();
     final subStyle = getSubStyle();
     final settings = context.watch<SettingsState>();
+    final auth = context.watch<AuthState>();
+    final email = auth.user?.email?.trim();
+    final emailLabel =
+        (email == null || email.isEmpty) ? 'No email available' : email;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -121,8 +125,8 @@ class SettingsPage extends StatelessWidget {
               _SwitchTile(
                 color: colors,
                 icon: Icons.umbrella_outlined,
-                title: "Show Weather Quality",
-                subtitle: "Display the quality index bar",
+                title: "Show Umbrella Index",
+                subtitle: "Display the Umbrella Index bar",
                 value: settings.showUmbrellaIndex,
                 onChanged: settings.setShowUmbrellaIndex,
                 labelStyle: labelStyle,
@@ -245,6 +249,13 @@ class SettingsPage extends StatelessWidget {
             title: "Account",
             color: colors,
             children: [
+              ListTile(
+                leading: Icon(Icons.account_circle_outlined, color: colors.sub),
+                title: Text("Signed in as", style: labelStyle),
+                subtitle: Text(emailLabel, style: subStyle),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
                 title: const Text(

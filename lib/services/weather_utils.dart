@@ -41,30 +41,96 @@ String displayCondition(String raw) {
   return titled.isEmpty ? 'Unknown' : titled;
 }
 
+// Umbrella Index: 0-10 outdoor readiness score using current conditions and
+// near-term forecast signals.
 double weatherQualityIndex(
   CurrentWeather current, {
   double? avgHighC,
   double? avgLowC,
+  List<HourlyWeather>? hourly,
+  List<DailyWeather>? daily,
+  AirQuality? airQuality,
+  DateTime? now,
 }) {
-  final idealC = _comfortIdealC(avgHighC, avgLowC);
+  final sampleNow = now ?? DateTime.now();
+  final hourlyWindow = _upcomingHours(hourly, sampleNow, maxHours: 12);
+  final dailyWindow = daily == null
+      ? const <DailyWeather>[]
+      : upcomingDaily(daily, now: sampleNow, maxDays: 2);
+  final computedAvgHigh =
+      avgHighC ?? _averageDouble(dailyWindow.map((d) => d.maxTempC));
+  final computedAvgLow =
+      avgLowC ?? _averageDouble(dailyWindow.map((d) => d.minTempC));
+  final idealC = _comfortIdealC(computedAvgHigh, computedAvgLow);
   final thermal = _thermalComfortScore(current.feelsLikeC, idealC);
   final humidity = _humidityScore(current.humidity, current.feelsLikeC);
-  final comfort = ((thermal * 0.8) + (humidity * 0.2)).clamp(0.0, 1.0);
+  final stability = _tempStabilityScore(hourlyWindow, current.tempC);
+  final exposure = _thermalExposureScore(current.feelsLikeC);
+  final comfortBase =
+      (thermal * 0.7) + (humidity * 0.2) + (stability * 0.1);
+  final comfort = (comfortBase * exposure).clamp(0.0, 1.0);
 
-  final precipScore =
-      _precipScore(current.precipProbability, current.precipMm);
-  final windScore = _windScore(current.windSpeedKph, current.windGustKph);
-  final uvScore = _uvScore(current.uvIndex);
-  final visibilityScore = _visibilityScore(current.visibilityKm);
-  final hazardScore = _hazardScore(current.condition);
+  final precipScore = _precipScore(current, hourlyWindow);
+  final windScore = _windScore(current, hourlyWindow);
+  final uvScore = _uvScore(_peakUvIndex(current.uvIndex, hourlyWindow));
+  final visibilityScore =
+      _visibilityScore(_minVisibilityKm(current.visibilityKm, hourlyWindow));
+  final hazardScore =
+      _hazardScoreForecast(current.condition, hourlyWindow, dailyWindow);
+  final airScore = _airQualityScore(airQuality);
 
-  final score = (comfort * 0.6) +
-      (precipScore * 0.15) +
+  final baseScore = (comfort * 0.5) +
+      (precipScore * 0.2) +
       (windScore * 0.1) +
-      (uvScore * 0.07) +
-      (visibilityScore * 0.05) +
-      (hazardScore * 0.03);
-  return (score * 10.0).clamp(0.0, 10.0);
+      (airScore * 0.07) +
+      (uvScore * 0.05) +
+      (visibilityScore * 0.04) +
+      (hazardScore * 0.04);
+  final exposureMultiplier = 0.35 + (0.65 * exposure);
+  final adjusted = (baseScore * exposureMultiplier).clamp(0.0, 1.0);
+  final spread = math.pow(adjusted, 1.08).toDouble();
+  return (spread * 10.0).clamp(0.0, 10.0);
+}
+
+double? _averageDouble(Iterable<double> values) {
+  double sum = 0.0;
+  int count = 0;
+  for (final value in values) {
+    sum += value;
+    count += 1;
+  }
+  if (count == 0) return null;
+  return sum / count;
+}
+
+List<HourlyWeather> _upcomingHours(
+  List<HourlyWeather>? hourly,
+  DateTime now, {
+  int maxHours = 12,
+}) {
+  if (hourly == null || hourly.isEmpty) return const [];
+  final upcoming = hourly.where((h) => !h.time.isBefore(now)).toList();
+  upcoming.sort((a, b) => a.time.compareTo(b.time));
+  return upcoming.take(maxHours).toList();
+}
+
+double _tempStabilityScore(List<HourlyWeather> hours, double currentTempC) {
+  if (hours.isEmpty) return 0.9;
+  double minTemp = currentTempC;
+  double maxTemp = currentTempC;
+  for (final hour in hours) {
+    if (hour.tempC < minTemp) minTemp = hour.tempC;
+    if (hour.tempC > maxTemp) maxTemp = hour.tempC;
+  }
+  final swing = (maxTemp - minTemp).abs();
+  final normalized = ((swing - 6.0) / 18.0).clamp(0.0, 1.0);
+  return (1.0 - normalized).clamp(0.35, 1.0);
+}
+
+double _thermalExposureScore(double feelsLikeC) {
+  final cold = 1.0 / (1.0 + math.exp(-(feelsLikeC + 5.0) / 5.0));
+  final heat = 1.0 / (1.0 + math.exp((feelsLikeC - 34.0) / 5.0));
+  return (cold * heat).clamp(0.0, 1.0);
 }
 
 double _comfortIdealC(double? avgHighC, double? avgLowC) {
@@ -96,12 +162,40 @@ double _humidityScore(double? humidity, double feelsLikeC) {
   return base;
 }
 
-double _precipScore(double precipProbability, double? precipMm) {
-  final pop = normalizeProbability(precipProbability);
-  final amountImpact = _precipAmountImpact(precipMm);
-  final risk = (pop * 0.7) + (amountImpact * 0.3);
-  final softened = math.pow(risk, 1.15).toDouble();
+double _precipScore(CurrentWeather current, List<HourlyWeather> hours) {
+  final currentRisk =
+      _precipRisk(current.precipProbability, current.precipMm);
+  final forecastRisk = _forecastPrecipRisk(hours);
+  final risk = forecastRisk == null
+      ? currentRisk
+      : ((currentRisk * 0.35) + (forecastRisk * 0.65));
+  final softened = math.pow(risk, 1.1).toDouble();
   return (1.0 - softened).clamp(0.0, 1.0);
+}
+
+double _precipRisk(double probability, double? precipMm) {
+  final pop = normalizeProbability(probability);
+  final amountImpact = _precipAmountImpact(precipMm);
+  return ((pop * 0.65) + (amountImpact * 0.35)).clamp(0.0, 1.0);
+}
+
+double? _forecastPrecipRisk(List<HourlyWeather> hours) {
+  if (hours.isEmpty) return null;
+  double weighted = 0.0;
+  double weights = 0.0;
+  double peak = 0.0;
+  for (int i = 0; i < hours.length; i++) {
+    final risk = _precipRisk(
+      hours[i].precipProbability,
+      hours[i].precipMm,
+    );
+    final weight = math.exp(-i / 4.0);
+    weighted += risk * weight;
+    weights += weight;
+    if (risk > peak) peak = risk;
+  }
+  final avg = weights == 0 ? 0.0 : weighted / weights;
+  return ((avg * 0.65) + (peak * 0.35)).clamp(0.0, 1.0);
 }
 
 double _precipAmountImpact(double? precipMm) {
@@ -113,12 +207,40 @@ double _precipAmountImpact(double? precipMm) {
   return 1.0;
 }
 
-double _windScore(double windSpeedKph, double windGustKph) {
-  final effectiveWind = windGustKph > windSpeedKph
-      ? (windSpeedKph * 0.7 + windGustKph * 0.3)
-      : windSpeedKph;
-  final x = (effectiveWind - 28.0) / 6.0;
+double _windScore(CurrentWeather current, List<HourlyWeather> hours) {
+  final currentEffective =
+      _effectiveWind(current.windSpeedKph, current.windGustKph);
+  double maxForecast = currentEffective;
+  double sum = current.windSpeedKph;
+  int count = 1;
+  for (final hour in hours) {
+    if (hour.windSpeedKph > maxForecast) {
+      maxForecast = hour.windSpeedKph;
+    }
+    sum += hour.windSpeedKph;
+    count += 1;
+  }
+  final avg = sum / count;
+  final effective = (avg * 0.6) + (maxForecast * 0.4);
+  final blended = math.max((currentEffective * 0.4) + (effective * 0.6),
+      currentEffective);
+  final x = (blended - 24.0) / 6.0;
   return (1.0 / (1.0 + math.exp(x))).clamp(0.0, 1.0);
+}
+
+double _effectiveWind(double windSpeedKph, double windGustKph) {
+  if (windGustKph <= windSpeedKph) return windSpeedKph;
+  return (windSpeedKph * 0.7) + (windGustKph * 0.3);
+}
+
+int? _peakUvIndex(int? currentUv, List<HourlyWeather> hours) {
+  int? peak = currentUv;
+  for (final hour in hours) {
+    final uv = hour.uvIndex;
+    if (uv == null) continue;
+    if (peak == null || uv > peak) peak = uv;
+  }
+  return peak;
 }
 
 double _uvScore(int? uvIndex) {
@@ -130,6 +252,18 @@ double _uvScore(int? uvIndex) {
   return 0.45;
 }
 
+double? _minVisibilityKm(double? currentVisibility, List<HourlyWeather> hours) {
+  double? minVisibility = currentVisibility;
+  for (final hour in hours) {
+    final vis = hour.visibilityKm;
+    if (vis == null) continue;
+    if (minVisibility == null || vis < minVisibility) {
+      minVisibility = vis;
+    }
+  }
+  return minVisibility;
+}
+
 double _visibilityScore(double? visibilityKm) {
   if (visibilityKm == null) return 0.9;
   if (visibilityKm >= 10) return 1.0;
@@ -137,6 +271,23 @@ double _visibilityScore(double? visibilityKm) {
   if (visibilityKm >= 3) return 0.7;
   if (visibilityKm >= 1) return 0.5;
   return 0.3;
+}
+
+double _hazardScoreForecast(
+  String currentCondition,
+  List<HourlyWeather> hours,
+  List<DailyWeather> daily,
+) {
+  double worst = _hazardScore(currentCondition);
+  for (final hour in hours) {
+    final score = _hazardScore(hour.condition);
+    if (score < worst) worst = score;
+  }
+  for (final day in daily) {
+    final score = _hazardScore(day.condition);
+    if (score < worst) worst = score;
+  }
+  return worst;
 }
 
 double _hazardScore(String condition) {
@@ -148,6 +299,17 @@ double _hazardScore(String condition) {
     return 0.7;
   }
   return 1.0;
+}
+
+double _airQualityScore(AirQuality? airQuality) {
+  final aqi = airQuality?.aqi;
+  if (aqi == null) return 0.9;
+  if (aqi <= 50) return 1.0;
+  if (aqi <= 100) return 0.85;
+  if (aqi <= 150) return 0.7;
+  if (aqi <= 200) return 0.55;
+  if (aqi <= 300) return 0.4;
+  return 0.3;
 }
 
 String weatherQualityCaption(double idx, {double? feelsLikeC}) {

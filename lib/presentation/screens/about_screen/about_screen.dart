@@ -41,7 +41,7 @@ class AboutScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Umbrella Weather',
+                  'Umbrella',
                   style: TextStyle(
                     color: theme.text,
                     fontSize: 22,
@@ -58,8 +58,10 @@ class AboutScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Umbrella combines forecasts, air quality, wind, and '
-                  'precipitation insights to help you plan the day at a glance.',
+                  'Umbrella centers on the Umbrella Index, a 0-10 score that '
+                  'blends current conditions with the next-hours forecast '
+                  '(rain, wind, UV, visibility, air quality) so you can plan '
+                  'fast.',
                   style: TextStyle(
                     color: theme.text,
                     height: 1.4,
@@ -73,11 +75,12 @@ class AboutScreen extends StatelessWidget {
             theme: theme,
             title: 'What it does',
             items: const [
-              'Real-time weather cards with hourly and 5‑day outlooks.',
-              'Air quality, UV, visibility, and precipitation summaries.',
-              'Multiple saved locations with quick switching.',
-              'Insights and graphs for deeper trends.',
-              'Notification alerts for changing conditions.',
+              'Umbrella Index with daily insights for comfort, humidity, and sky.',
+              'Current conditions plus hourly timeline and 5-day outlook.',
+              'Charts for temperature, precipitation, and averages.',
+              'Wind details with an animated wind map.',
+              'Saved locations with search and quick switching.',
+              'Local alerts for rain, sunrise/sunset, UV, air quality, visibility.',
             ],
           ),
           const SizedBox(height: 12),
@@ -85,9 +88,10 @@ class AboutScreen extends StatelessWidget {
             theme: theme,
             title: 'Data & privacy',
             items: const [
-              'Forecasts use the configured Google Weather APIs.',
-              'Location data stays on device unless you save it.',
-              'Notifications rely on cached forecasts when offline.',
+              'Forecasts and air quality use the configured Google APIs.',
+              'Place search uses the configured Google Places API.',
+              'Saved locations and preferences stay on device.',
+              'Alerts are scheduled locally and can use cached forecasts.',
             ],
           ),
         ],
