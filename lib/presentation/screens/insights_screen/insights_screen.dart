@@ -30,6 +30,10 @@ class InsightsScreen extends StatelessWidget {
       current,
       avgHighC: avgHighC,
       avgLowC: avgLowC,
+      hourly: snapshot.hourly,
+      daily: snapshot.daily,
+      airQuality: snapshot.airQuality,
+      now: now,
     );
     final today = dailyForDate(snapshot.daily, now);
     final sunrise = today?.sunriseTime;
@@ -86,9 +90,9 @@ class InsightsScreen extends StatelessWidget {
                     _Insight(
                       theme: theme,
                       icon: Icons.umbrella_rounded,
-                      title: "WEATHER QUALITY",
+                      title: "UMBRELLA INDEX",
                       text:
-                          "Weather Quality is ${index.toStringAsFixed(1)}/10. ${weatherQualityInsight(index, isNight: isNight, feelsLikeC: current.feelsLikeC)}",
+                          "Umbrella Index is ${index.toStringAsFixed(1)}/10. ${weatherQualityInsight(index, isNight: isNight, feelsLikeC: current.feelsLikeC)}",
                     ),
                   ],
                 ),
