@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
-
+import '../../../services/feedback_service.dart';
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({
     super.key,
@@ -117,7 +117,28 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () async {
+                if (feedbackCtrl.text.trim().isEmpty) return;
+
+                await FeedbackService.submit(
+                  feedbackCtrl.text,
+                  email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                  tags: selected.toList(),
+                );
+
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Feedback sent. Thank you!')),
+                );
+
+
+                feedbackCtrl.clear();
+                emailCtrl.clear();
+                selected.clear();
+
+
+              },
               child: Text(
                 'Submit',
                 style: TextStyle(
